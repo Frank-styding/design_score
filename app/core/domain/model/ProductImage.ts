@@ -2,7 +2,8 @@ import { UploadedFile } from "../../types";
 
 export class ProductImage {
   constructor(
-    public name: string,
+    public id: number,
+    public productId: number,
     public url: string,
     public path: string,
     public weight: number,

@@ -1,8 +1,8 @@
-import { ProductRepositoryPort } from "@/app/core/application/port/out/ProductRepositoryPort";
+import { ProductRepositoryPort as ProductRepository } from "@/app/core/application/port/out/ProductRepositoryPort";
 import { Product } from "@/app/core/domain/model/Product";
 import { SubpabaseDB } from "../../db/SubpabaseDB";
 import fs from "fs";
-export class ProductRepositoryAdapter implements ProductRepositoryPort {
+export class ProductRepositoryAdapter implements ProductRepository {
   save(product: Product): Product {
     /*     SubpabaseDB.getClient().from("Product").insert([{
       name: product.name,
@@ -23,5 +23,6 @@ export class ProductRepositoryAdapter implements ProductRepositoryPort {
     });
     //SubpabaseDB.getClient().storage.from("products").update(``,)
     return product; */
+    return product;
   }
 }

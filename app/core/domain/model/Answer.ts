@@ -1,7 +1,10 @@
 export class Answer {
   constructor(
-    public answer_value: number,
-    public is_anonymous: boolean,
+    public id: string,
+    public userId: string,
+    public questionId: number,
+    public answerValue: number,
+    public isAnonymous: boolean,
     public comment: string
   ) {}
 }

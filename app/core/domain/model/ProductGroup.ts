@@ -1,3 +1,8 @@
 export class ProductGroup {
-  constructor(public name: string, public description: string) {}
+  constructor(
+    public id: number,
+    public adminId: string,
+    public name: string,
+    public description: string
+  ) {}
 }

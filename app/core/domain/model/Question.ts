@@ -1,3 +1,7 @@
 export class Question {
-  constructor(public num_products: number) {}
+  constructor(
+    public id: number,
+    public surveyId: number,
+    public numProducts: number
+  ) {}
 }
