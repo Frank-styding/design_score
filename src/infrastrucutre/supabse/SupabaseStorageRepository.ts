@@ -7,7 +7,7 @@ export class SupabaseStorageRepository implements IStorageRepository {
     filePath: string
   ): Promise<{ ok: boolean; error: string | null }> {
     const { error } = await this.supabaseClient.storage
-      .from("product-images")
+      .from("files")
       .remove([filePath]);
     if (error) {
       return { ok: false, error: error.message };
@@ -18,7 +18,7 @@ export class SupabaseStorageRepository implements IStorageRepository {
     filePaths: string[]
   ): Promise<{ ok: boolean; error: string | null }> {
     const { error } = await this.supabaseClient.storage
-      .from("product-images")
+      .from("files")
       .remove(filePaths);
     if (error) {
       return { ok: false, error: error.message };
@@ -27,7 +27,7 @@ export class SupabaseStorageRepository implements IStorageRepository {
   }
   async getFileUrl(filePath: string): Promise<{ url: string | null }> {
     const { data } = await this.supabaseClient.storage
-      .from("product-images")
+      .from("files")
       .getPublicUrl(filePath);
 
     return { url: data.publicUrl };
@@ -41,7 +41,7 @@ export class SupabaseStorageRepository implements IStorageRepository {
     error: string | null;
   }> {
     const { data, error } = await this.supabaseClient.storage
-      .from("product-images")
+      .from("files")
       .upload(filePath, file);
     if (error) {
       return { ok: false, error: error.message, data: null };

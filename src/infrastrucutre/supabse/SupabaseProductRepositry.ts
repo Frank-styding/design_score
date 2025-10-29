@@ -10,147 +10,149 @@ export class SupabaseProductRepository implements IProductRepository {
     private storageRepository: IStorageRepository
   ) {}
 
-  async findById(productId: string, adminId: string): Promise<Product | null> {
-    const { data: productData, error: productError } = await this.supabaseClient
+  async createProduct(
+    product: Product,
+    adminId: string
+  ): Promise<{ product: Product | null; ok: boolean; error: string | null }> {
+    const { data, error } = await this.supabaseClient
       .from("product")
-      .select("*")
+      .insert({
+        name: product.name,
+        description: product.description,
+        admin_id: adminId,
+        xr_url: product.xr_url,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return { product: null, ok: false, error: error.message };
+    }
+    //console.log(data);
+    // Actualizamos el objeto producto con el ID real asignado
+    return {
+      product: { ...product, id: data.product_id },
+      ok: true,
+      error: null,
+    };
+  }
+
+  async addImageToProduct(
+    productId: string,
+    adminId: string,
+    image: ProductImage,
+    isFirstImage: boolean = false
+  ): Promise<{
+    image: ProductImage | null;
+    ok: boolean;
+    error: string | null;
+  }> {
+    try {
+      // --- Subir archivo a Storage ---
+      const path = `${adminId}/${productId}/${image.file_name}`;
+      const { data: uploadData, error: uploadError } =
+        await this.storageRepository.uploadFile(path, image.file as File);
+
+      if (uploadError || !uploadData) {
+        throw new Error(uploadError || "Error al subir imagen al Storage");
+      }
+
+      const { url } = await this.storageRepository.getFileUrl(path);
+      image.url = url as string;
+      image.path = uploadData.path;
+
+      // --- Insertar en tabla "image" ---
+      const { data: insertedImage, error: insertError } =
+        await this.supabaseClient
+          .from("image")
+          .insert({
+            url: image.url,
+            path: image.path,
+            product_id: productId,
+            size: image.size,
+            file_name: image.file_name,
+          })
+          .select("image_id")
+          .single();
+
+      if (insertError) throw new Error(insertError.message);
+
+      image.id = insertedImage.image_id;
+
+      // --- Si es la primera imagen, asignarla como cover ---
+      if (isFirstImage) {
+        await this.supabaseClient
+          .from("product")
+          .update({ cover_image_id: image.id })
+          .eq("product_id", productId);
+      }
+
+      return {
+        image: { ...image, id: insertedImage.image_id },
+        ok: true,
+        error: null,
+      };
+    } catch (err: any) {
+      console.error("Error agregando imagen:", err.message);
+      return { image: null, ok: false, error: err.message };
+    }
+  }
+
+  async findById(productId: string, adminId: string): Promise<Product | null> {
+    const { data, error } = await this.supabaseClient
+      .from("product")
+      .select("*, image (*)")
       .eq("product_id", productId)
       .eq("admin_id", adminId)
       .single();
 
-    if (productError) {
-      return null;
-    }
+    if (error || !data) return null;
 
-    const { data: imagesData, error: imagesError } = await this.supabaseClient
-      .from("image")
-      .select("*")
-      .eq("product_id", productId);
-
-    if (imagesError) {
-      return null;
-    }
-
-    const images: ProductImage[] = imagesData.map((item) => ({
+    const images: ProductImage[] = data.image.map((item: any) => ({
       id: item.image_id,
       url: item.url,
       path: item.path,
-      productId: productId,
+      productId: data.product_id,
       size: item.size,
       file_name: item.file_name,
     }));
 
     return {
+      id: data.product_id,
       images,
-      name: productData.name,
-      description: productData.description,
-      weight: productData.weight,
-      num_images: productData.num_images,
-      xr_url: productData.xr_url,
-      coverImageId: productData.cover_image_id,
+      name: data.name,
+      description: data.description,
+      size: data.size,
+      num_images: data.num_images,
+      xr_url: data.xr_url,
+      coverImageId: data.cover_image_id,
     };
   }
-  async save(
-    product: Product,
-    adminId: string
-  ): Promise<{ product: Product | null; ok: boolean; error: string | null }> {
-    const { data, error: productError } = await this.supabaseClient
+
+  async findAll(adminId: string): Promise<Product[]> {
+    const { data, error } = await this.supabaseClient
       .from("product")
-      .insert({
-        name: product.name,
-        description: product.description,
-        weight: product.weight,
-        num_images: product.images.length,
-        admin_id: adminId,
-        xr_url: product.xr_url, //TODO: !change in the furture
-      })
-      .select()
-      .single();
-
-    if (productError) {
-      return {
-        product: null,
-        ok: false,
-        error: productError?.message || "Unknown error",
-      };
-    }
-    product.id = data.product_id;
-
-    let finalError: string | null = null;
-
-    for (let i = 0; i < product.images.length; i++) {
-      const productImage = product.images[i];
-      const path = `${adminId}/${product.id}/${productImage.id}`;
-      const { error, data } = await this.storageRepository.uploadFile(
-        path,
-        productImage.file as File
-      );
-      if (error) {
-        finalError = error || "Failed to upload image";
-        break;
-      }
-      if (!data) {
-        finalError = "No data returned from uploadFile";
-        break;
-      }
-      const { url } = await this.storageRepository.getFileUrl(path);
-      productImage.url = url as string;
-      productImage.path = data.path;
-      const { error: insertImageError, data: insertImage } =
-        await this.supabaseClient
-          .from("image")
-          .insert({
-            url: productImage.url,
-            path: productImage.path,
-            product_id: product.id,
-            size: productImage.size,
-            file_name: productImage.file_name,
-          })
-          .select()
-          .single();
-      if (insertImageError) {
-        finalError = insertImageError.message || "Error inserting image record";
-        break;
-      }
-      productImage.id = insertImage.image_id;
-    }
-
-    if (finalError) {
-      this.supabaseClient
-        .from("product")
-        .delete()
-        .eq("product_id", product.id)
-        .eq("admin_id", adminId);
-      this.storageRepository.deleteFiles(product.images.map((img) => img.path));
-      return {
-        product: null,
-        ok: false,
-        error: finalError,
-      };
-    }
-
-    await this.supabaseClient
-      .from("product")
-      .update({ cover_image_id: product.images[0].id })
-      .eq("product_id", product.id)
+      .select("*, image (*)")
       .eq("admin_id", adminId);
 
-    return {
-      product,
-      ok: true,
-      error: null,
-    };
-  }
-  async delete(
-    productId: string,
-    adminId: string
-  ): Promise<{ ok: boolean; error: string | null }> {
-    await this.supabaseClient
-      .from("product")
-      .select("*")
-      .eq("product_id", productId);
-  }
-  findAll(adminId: string): Promise<Product[]> {
-    throw new Error("Method not implemented.");
+    if (error || !data) return [];
+
+    return data.map((row: any) => ({
+      id: row.product_id,
+      name: row.name,
+      description: row.description,
+      weight: row.weight,
+      num_images: row.num_images,
+      xr_url: row.xr_url,
+      coverImageId: row.cover_image_id,
+      images: row.image.map((img: any) => ({
+        id: img.image_id,
+        url: img.url,
+        path: img.path,
+        productId: row.product_id,
+        size: img.size,
+        file_name: img.file_name,
+      })),
+    }));
   }
 }

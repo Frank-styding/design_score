@@ -3,11 +3,11 @@ import { ProductImage } from "./ProductImage";
 export interface Product {
   id?: string;
   name: string;
-  description: string;
-  weight: number;
-  num_images: number;
-  images: ProductImage[];
+  description?: string;
+  size?: number;
+  num_images?: number;
+  images?: ProductImage[];
   //adminId: string;
-  coverImageId: string;
+  coverImageId?: string;
   xr_url: string;
 }

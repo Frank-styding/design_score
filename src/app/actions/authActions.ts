@@ -1,31 +1,30 @@
 "use server";
-import { SignInUserUseCase } from "@/src/domain/usecase/SignInUserUseCase";
-import { SignUpUserUseCase } from "@/src/domain/usecase/SignUpUserUseCase";
+import { AuthUseCase } from "@/src/domain/usecase/AuthUseCase";
 import { createClient } from "@/src/infrastrucutre/supabse/client";
 import { SupabaseAuthRepository } from "@/src/infrastrucutre/supabse/SupabaseAuthRepository";
 
-export async function singInAction(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+export async function signInAction(email: string, password: string) {
+  /*  const email = formData.get("email") as string;
+  const password = formData.get("password") as string; */
   const client = await createClient();
   const authRepository = new SupabaseAuthRepository(client);
-  const loginUseCase = new SignInUserUseCase(authRepository);
+  const authUseCase = new AuthUseCase(authRepository);
   try {
-    const { user, session } = await loginUseCase.execute(email, password);
+    const { user, session } = await authUseCase.signIn(email, password);
     return { success: true, user };
   } catch (error) {
     return { success: false, error: (error as Error).message };
   }
 }
 
-export async function signUpAction(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+export async function signUpAction(email: string, password: string) {
+  //const email = formData.get("email") as string;
+  //  const password = formData.get("password") as string;
   const client = await createClient();
   const authRepository = new SupabaseAuthRepository(client);
-  const signUpUseCase = new SignUpUserUseCase(authRepository);
+  const authUseCase = new AuthUseCase(authRepository);
   try {
-    const { user, session } = await signUpUseCase.execute(email, password);
+    const { user, session } = await authUseCase.signUp(email, password);
     return { success: true, user };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -35,8 +34,10 @@ export async function signUpAction(formData: FormData) {
 export async function signOutAction() {
   const client = await createClient();
   const authRepository = new SupabaseAuthRepository(client);
+  const authUseCase = new AuthUseCase(authRepository);
+
   try {
-    await authRepository.signOut();
+    await authUseCase.signOut();
     return { success: true };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -46,8 +47,9 @@ export async function signOutAction() {
 export async function getCurrentUserAction() {
   const client = await createClient();
   const authRepository = new SupabaseAuthRepository(client);
+  const authUseCase = new AuthUseCase(authRepository);
   try {
-    const user = await authRepository.getCurrentUser();
+    const user = await authUseCase.getCurrentUser();
     return { success: true, user };
   } catch (error) {
     return { success: false, error: (error as Error).message };
