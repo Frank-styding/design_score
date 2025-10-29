@@ -272,17 +272,28 @@ function UploadFolderForm() {
 function ViewProduct() {
   const baseUrl =
     "https://emrgqbrqnqpbkrpruwts.supabase.co/storage/v1/object/public/files/776dbc5d-64e1-4489-8f48-3bb1dfb5ba2e/deed98f7-e7e3-426f-8c28-2f35a4962e36";
-
+  const baseUrl1 =
+    "https://emrgqbrqnqpbkrpruwts.supabase.co/storage/v1/object/public/files/776dbc5d-64e1-4489-8f48-3bb1dfb5ba2e/fa330de2-2aca-4345-bf15-62d598b019c8";
+  const w = 500;
   return (
-    <KeyShotXRViewer
-      containerId="keyshot-viewer"
-      baseUrl={baseUrl}
-      className="w-40 h-40"
-      width={1024}
-      height={575}
-      columns={36}
-      rows={5}
-    />
+    <div className="flex">
+      <KeyShotXRViewer
+        containerId="keyshot-viewer"
+        baseUrl={baseUrl}
+        width={w}
+        height={(575 / 1024) * w}
+        columns={36}
+        rows={5}
+      />
+      <KeyShotXRViewer
+        containerId="keyshot-viewer"
+        baseUrl={baseUrl1}
+        width={w}
+        height={(575 / 1024) * w}
+        columns={36}
+        rows={5}
+      />
+    </div>
   );
 }
 // ============================================================
