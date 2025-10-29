@@ -11,12 +11,14 @@ export class ProductUseCase {
   async addImageToProductAction(
     productId: string,
     adminId: string,
-    image: ProductImage
+    image: ProductImage,
+    isFirstImage: boolean
   ) {
     return await this.productRepository.addImageToProduct(
       productId,
       adminId,
-      image
+      image,
+      isFirstImage
     );
   }
 }

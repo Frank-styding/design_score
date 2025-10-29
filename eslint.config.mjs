@@ -13,6 +13,11 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      "@typescript-eslint/no-implicit-any": "error",
+    },
+  },
 ]);
 
 export default eslintConfig;

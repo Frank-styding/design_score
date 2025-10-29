@@ -5,11 +5,16 @@ import {
   createProductAction,
   addImageToProductAction,
 } from "./actions/productActions";
-import { signInAction, signUpAction } from "./actions/authActions";
+import {
+  signInAction,
+  signUpAction,
+  signOutAction,
+} from "./actions/authActions";
+import KeyShotXRViewer from "../components/KeyShotXRViewer";
 
-// ---------------------------------------------
-// 🔹 Función auxiliar para leer constantes de un HTML
-// ---------------------------------------------
+// ============================================================
+// 🔹 Función auxiliar para leer constantes del HTML
+// ============================================================
 function extractConstantsFromHTML(htmlText: string): Record<string, any> {
   const regex = /var\s+(\w+)\s*=\s*([^;]+);/g;
   const constants: Record<string, any> = {};
@@ -35,9 +40,9 @@ function extractConstantsFromHTML(htmlText: string): Record<string, any> {
   return constants;
 }
 
-// ---------------------------------------------
+// ============================================================
 // 🔹 Procesar carpeta (HTML + imágenes)
-// ---------------------------------------------
+// ============================================================
 async function processFiles(selectedFiles: FileList) {
   const files = Array.from(selectedFiles).filter((file) => {
     return (
@@ -74,26 +79,36 @@ async function processFiles(selectedFiles: FileList) {
   return { parsedConstants, images };
 }
 
-// ---------------------------------------------
-// 🔹 Formulario de login simple
-// ---------------------------------------------
-function LoginForm({
-  onLogin,
-}: {
-  onLogin: (email: string, password: string) => void;
-}) {
+// ============================================================
+// 🔹 Formulario de autenticación (login / signup)
+// ============================================================
+function AuthForm({ onAuthSuccess }: { onAuthSuccess: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError("Completa todos los campos");
-      return;
-    }
     setError(null);
-    onLogin(email, password);
+
+    try {
+      let result;
+      if (mode === "signin") {
+        result = await signInAction(email, password);
+      } else {
+        result = await signUpAction(email, password);
+      }
+
+      if (!result.success) {
+        setError(result.error || "Error en autenticación");
+        return;
+      }
+
+      onAuthSuccess();
+    } catch (err: any) {
+      setError(err.message);
+    }
   };
 
   return (
@@ -101,7 +116,9 @@ function LoginForm({
       onSubmit={handleSubmit}
       className="flex flex-col bg-gray-800 p-4 rounded mb-6 w-80 mx-auto"
     >
-      <h3 className="text-lg font-semibold mb-3 text-white">Iniciar Sesión</h3>
+      <h3 className="text-lg font-semibold mb-3 text-white">
+        {mode === "signin" ? "Iniciar Sesión" : "Crear Cuenta"}
+      </h3>
 
       <input
         type="email"
@@ -124,17 +141,27 @@ function LoginForm({
 
       <button
         type="submit"
-        className="bg-blue-600 hover:bg-blue-500 text-white py-2 rounded"
+        className="bg-blue-600 hover:bg-blue-500 text-white py-2 rounded mb-2"
       >
-        Entrar
+        {mode === "signin" ? "Entrar" : "Registrarse"}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+        className="text-blue-300 text-sm hover:underline"
+      >
+        {mode === "signin"
+          ? "¿No tienes cuenta? Regístrate"
+          : "¿Ya tienes cuenta? Inicia sesión"}
       </button>
     </form>
   );
 }
 
-// ---------------------------------------------
-// 🔹 Formulario de subida de carpeta
-// ---------------------------------------------
+// ============================================================
+// 🔹 Subida de carpeta (HTML + imágenes)
+// ============================================================
 function UploadFolderForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -169,16 +196,27 @@ function UploadFolderForm() {
         xr_url: parsedConstants,
       });
 
-      if (!product) throw new Error("No se puedo crear el producto");
-      console.log(product);
-      // 🔹 Subir imágenes una por una
-      for (let i = 0; i < images.length; i++) {
-        const image = images[i];
-        const progress = Math.round(((i + 1) / images.length) * 100);
-        setUploadProgress(progress);
+      if (!product) throw new Error("No se pudo crear el producto");
 
-        const res = await addImageToProductAction(product.id as string, image);
-        if (!res || !res.ok) throw new Error(`Error en imagen ${image.name}`);
+      const batchSize = 10;
+      for (let i = 0; i < images.length; i += batchSize) {
+        const batch = images.slice(i, i + batchSize);
+
+        const results = await Promise.all(
+          batch.map((image) =>
+            addImageToProductAction(product.id as string, image, i == 0)
+          )
+        );
+
+        results.forEach((res, index) => {
+          if (!res || !res.ok) {
+            const failedImage = batch[index];
+            throw new Error(`Error en imagen ${failedImage.name}`);
+          }
+        });
+
+        const progress = Math.round(((i + batch.length) / images.length) * 100);
+        setUploadProgress(progress);
       }
 
       setSuccess("Producto y todas las imágenes subidas correctamente ✅");
@@ -231,30 +269,65 @@ function UploadFolderForm() {
   );
 }
 
-// ---------------------------------------------
-// 🔹 Página principal combinada
-// ---------------------------------------------
-export default function UploadPage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+function ViewProduct() {
+  const baseUrl =
+    "https://emrgqbrqnqpbkrpruwts.supabase.co/storage/v1/object/public/files/776dbc5d-64e1-4489-8f48-3bb1dfb5ba2e/deed98f7-e7e3-426f-8c28-2f35a4962e36";
 
-  const handleLogin = async (email: string, password: string) => {
-    // Aquí puedes reemplazar con tu auth real
-    const { success, error } = await signUpAction(email, password);
-    if (!success) {
-      alert(error);
-    } else {
-      setIsLoggedIn(true);
-    }
-    /*     if (email === "admin@test.com" && password === "123456") {
-      setIsLoggedIn(true);
-    } else {
-      alert("Credenciales incorrectas");
-    } */
+  return (
+    <KeyShotXRViewer
+      containerId="keyshot-viewer"
+      baseUrl={baseUrl}
+      className="w-40 h-40"
+      width={1024}
+      height={575}
+      columns={36}
+      rows={5}
+    />
+  );
+}
+// ============================================================
+// 🔹 Página principal
+// ============================================================
+export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [displayView, setDisplayView] = useState(false);
+
+  const handleAuthSuccess = () => setIsLoggedIn(true);
+
+  const handleSignOut = async () => {
+    await signOutAction();
+    setIsLoggedIn(false);
   };
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
-      {!isLoggedIn ? <LoginForm onLogin={handleLogin} /> : <UploadFolderForm />}
+      {displayView ? (
+        !isLoggedIn ? (
+          <>
+            <AuthForm onAuthSuccess={handleAuthSuccess} />
+          </>
+        ) : (
+          <div className="flex flex-col items-center">
+            <button
+              onClick={handleSignOut}
+              className="bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded mb-6"
+            >
+              Cerrar Sesión
+            </button>
+
+            <UploadFolderForm />
+          </div>
+        )
+      ) : (
+        <ViewProduct />
+      )}
+
+      <button
+        className="bg-green-600 hover:bg-green-500 text-white py-2 px-4 rounded mb-6"
+        onClick={() => setDisplayView(!displayView)}
+      >
+        Show View
+      </button>
     </div>
   );
 }

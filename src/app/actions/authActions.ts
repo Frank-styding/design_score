@@ -2,11 +2,13 @@
 import { AuthUseCase } from "@/src/domain/usecase/AuthUseCase";
 import { createClient } from "@/src/infrastrucutre/supabse/client";
 import { SupabaseAuthRepository } from "@/src/infrastrucutre/supabse/SupabaseAuthRepository";
+import { SupabaseClient } from "@supabase/supabase-js";
+let cachedClient: SupabaseClient<any, "public", "public"> | null = null;
 
 export async function signInAction(email: string, password: string) {
   /*  const email = formData.get("email") as string;
   const password = formData.get("password") as string; */
-  const client = await createClient();
+  const client = cachedClient ?? (cachedClient = await createClient());
   const authRepository = new SupabaseAuthRepository(client);
   const authUseCase = new AuthUseCase(authRepository);
   try {
@@ -20,7 +22,7 @@ export async function signInAction(email: string, password: string) {
 export async function signUpAction(email: string, password: string) {
   //const email = formData.get("email") as string;
   //  const password = formData.get("password") as string;
-  const client = await createClient();
+  const client = cachedClient ?? (cachedClient = await createClient());
   const authRepository = new SupabaseAuthRepository(client);
   const authUseCase = new AuthUseCase(authRepository);
   try {
@@ -32,7 +34,7 @@ export async function signUpAction(email: string, password: string) {
 }
 
 export async function signOutAction() {
-  const client = await createClient();
+  const client = cachedClient ?? (cachedClient = await createClient());
   const authRepository = new SupabaseAuthRepository(client);
   const authUseCase = new AuthUseCase(authRepository);
 
@@ -45,7 +47,7 @@ export async function signOutAction() {
 }
 
 export async function getCurrentUserAction() {
-  const client = await createClient();
+  const client = cachedClient ?? (cachedClient = await createClient());
   const authRepository = new SupabaseAuthRepository(client);
   const authUseCase = new AuthUseCase(authRepository);
   try {
