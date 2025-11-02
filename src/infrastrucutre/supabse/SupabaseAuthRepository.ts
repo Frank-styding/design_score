@@ -52,23 +52,70 @@ export class SupabaseAuthRepository implements IAuthRepository {
     };
   }
   async signOut(): Promise<void> {
-    const { error } = await this.supabaseClient.auth.signOut();
-    if (error) {
-      throw new Error(error.message);
+    try {
+      // Limpiar sesión tanto en servidor como localmente
+      const { error } = await this.supabaseClient.auth.signOut({
+        scope: "global",
+      });
+      if (error) {
+        console.warn("⚠️ Error en signOut del servidor:", error.message);
+        // Aunque falle en servidor, limpiar localmente
+        await this.supabaseClient.auth.signOut({ scope: "local" });
+      }
+    } catch (error: any) {
+      // Si todo falla, al menos limpiar localmente
+      console.error("❌ Error en signOut:", error.message);
+      await this.supabaseClient.auth
+        .signOut({ scope: "local" })
+        .catch(() => {});
     }
   }
   async getCurrentUser(): Promise<User | null> {
-    const { data, error } = await this.supabaseClient.auth.getUser();
-    if (error) {
-      throw new Error(error.message);
-    }
-    if (!data.user) {
+    try {
+      const { data, error } = await this.supabaseClient.auth.getUser();
+
+      // Si hay error de sesión inválida/expirada, retornar null en lugar de lanzar error
+      if (error) {
+        // Errores comunes de sesión no válida
+        const sessionErrors = [
+          "invalid claim: missing sub claim",
+          "invalid jwt",
+          "jwt expired",
+          "session not found",
+          "user not found",
+        ];
+
+        const isSessionError = sessionErrors.some((err) =>
+          error.message.toLowerCase().includes(err)
+        );
+
+        if (isSessionError) {
+          console.warn("⚠️ Sesión inválida o expirada, limpiando...");
+          // Limpiar sesión corrupta
+          await this.supabaseClient.auth.signOut({ scope: "local" });
+          return null;
+        }
+
+        // Otros errores sí lanzarlos
+        throw new Error(error.message);
+      }
+
+      if (!data.user) {
+        return null;
+      }
+
+      return {
+        id: data.user.id,
+        email: data.user.email || "",
+        password: "", // Do not expose the password
+      };
+    } catch (error: any) {
+      // Si falla completamente, limpiar y retornar null
+      console.error("❌ Error obteniendo usuario:", error.message);
+      await this.supabaseClient.auth
+        .signOut({ scope: "local" })
+        .catch(() => {});
       return null;
     }
-    return {
-      id: data.user.id,
-      email: data.user.email || "",
-      password: "", // Do not expose the password
-    };
   }
 }

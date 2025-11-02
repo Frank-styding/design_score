@@ -27,10 +27,13 @@ export default function ViewProduct({ adminId }: ViewProductProps) {
   const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
+      setProducts([]); // Limpiar productos anteriores
+      setSelectedProduct(null); // Limpiar producto seleccionado
       const allProducts = await getAllProductsAction();
       setProducts(allProducts || []);
     } catch (error) {
       console.error("Error cargando productos:", error);
+      setProducts([]);
     } finally {
       setLoading(false);
     }

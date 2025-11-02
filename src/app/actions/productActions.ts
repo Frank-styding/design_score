@@ -8,22 +8,11 @@ import { SupabaseProductRepository } from "@/src/infrastrucutre/supabse/Supabase
 import { SupabaseStorageRepository } from "@/src/infrastrucutre/supabse/SupabaseStorageRepository";
 import { SupabaseClient } from "@supabase/supabase-js";
 
-// Cache del cliente Supabase para reutilización
-let cachedClient: SupabaseClient<any, "public", "public"> | null = null;
-
-// Función helper para obtener el cliente (con cache)
-async function getClient() {
-  if (!cachedClient) {
-    cachedClient = await createClient();
-  }
-  return cachedClient;
-}
-
 export async function createProductAction(
   productData: Product
 ): Promise<Product | null> {
   try {
-    const client = await getClient();
+    const client = await createClient();
     const authRepository = new SupabaseAuthRepository(client);
     const storageRepository = new SupabaseStorageRepository(client);
     const productRespository = new SupabaseProductRepository(
@@ -54,7 +43,7 @@ export async function addImageToProductAction(
   isFirst: boolean
 ) {
   try {
-    const client = await getClient();
+    const client = await createClient();
     const authRepository = new SupabaseAuthRepository(client);
     const storageRepository = new SupabaseStorageRepository(client);
     const productRepository = new SupabaseProductRepository(
@@ -103,7 +92,7 @@ export async function addImagesBatchAction(
   isFirstBatch: boolean
 ): Promise<{ ok: boolean; error: string | null; uploaded: number }> {
   try {
-    const client = await getClient();
+    const client = await createClient();
     const authRepository = new SupabaseAuthRepository(client);
     const storageRepository = new SupabaseStorageRepository(client);
     const productRepository = new SupabaseProductRepository(
@@ -209,7 +198,7 @@ export async function getProductByIdAction(
   productId: string
 ): Promise<Product | null> {
   try {
-    const client = await getClient();
+    const client = await createClient();
     const authRepository = new SupabaseAuthRepository(client);
     const storageRepository = new SupabaseStorageRepository(client);
     const productRepository = new SupabaseProductRepository(
@@ -235,7 +224,7 @@ export async function getProductByIdAction(
  */
 export async function getAllProductsAction(): Promise<Product[]> {
   try {
-    const client = await getClient();
+    const client = await createClient();
     const authRepository = new SupabaseAuthRepository(client);
     const storageRepository = new SupabaseStorageRepository(client);
     const productRepository = new SupabaseProductRepository(

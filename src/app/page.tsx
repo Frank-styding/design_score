@@ -9,10 +9,19 @@ import { signOutAction } from "./actions/authActions";
 export default function Home() {
   const [displayView, setDisplayView] = useState(true);
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+  const [key, setKey] = useState(0); // Key para forzar re-render y limpiar estado
 
   const handleSignOut = async () => {
-    await signOutAction();
-    setUser(null);
+    try {
+      await signOutAction();
+      // Limpiar TODO el estado de la aplicación
+      setUser(null);
+      setDisplayView(true); // Volver a vista de subida
+      setKey((prev) => prev + 1); // Forzar re-render para limpiar componentes hijos
+      console.log("✅ Sesión cerrada y estado limpiado");
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    }
   };
 
   const handleAuthSuccess = (authenticatedUser: {
@@ -26,7 +35,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gray-50">
       {displayView ? (
         !user ? (
-          <AuthForm onAuthSuccess={handleAuthSuccess} />
+          <AuthForm key={key} onAuthSuccess={handleAuthSuccess} />
         ) : (
           <div className="flex flex-col items-center">
             <button
@@ -37,6 +46,7 @@ export default function Home() {
             </button>
 
             <UploadFolderForm
+              key={key}
               adminId={user.id}
               onSuccess={(productId) => {
                 console.log("Producto subido exitosamente:", productId);
@@ -52,7 +62,7 @@ export default function Home() {
         )
       ) : (
         <>
-          <ViewProduct adminId={user?.id} />
+          <ViewProduct key={key} adminId={user?.id} />
           <button
             className="bg-green-600 hover:bg-green-500 text-white py-2 px-4 rounded mt-6"
             onClick={() => setDisplayView(!displayView)}
