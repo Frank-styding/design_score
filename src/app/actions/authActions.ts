@@ -17,8 +17,6 @@ export async function signInAction(email: string, password: string) {
 }
 
 export async function signUpAction(email: string, password: string) {
-  //const email = formData.get("email") as string;
-  //  const password = formData.get("password") as string;
   const client = await createClient();
   const authRepository = new SupabaseAuthRepository(client);
   const authUseCase = new AuthUseCase(authRepository);

@@ -1,60 +1,227 @@
 "use client";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, memo } from "react";
 
+// Configuración completa de KeyShotXR según el formato original
+interface KeyShotXRConfig {
+  nameOfDiv?: string;
+  folderName: string; // Equivalente a baseUrl
+  viewPortWidth?: number;
+  viewPortHeight?: number;
+  backgroundColor?: string;
+  uCount?: number; // columns
+  vCount?: number; // rows
+  uWrap?: boolean;
+  vWrap?: boolean;
+  uMouseSensitivity?: number;
+  vMouseSensitivity?: number;
+  uStartIndex?: number;
+  vStartIndex?: number;
+  minZoom?: number;
+  maxZoom?: number;
+  rotationDamping?: number;
+  downScaleToBrowser?: boolean;
+  addDownScaleGUIButton?: boolean;
+  downloadOnInteraction?: boolean;
+  imageExtension?: string;
+  showLoading?: boolean;
+  loadingIcon?: string;
+  allowFullscreen?: boolean;
+  uReverse?: boolean;
+  vReverse?: boolean;
+  hotspots?: Record<string, any>;
+  isIBooksWidget?: boolean;
+}
+
+// Props del componente (mantiene retrocompatibilidad)
 interface KeyShotXRProps {
-  containerId: string;
-  baseUrl: string; // Carpeta con frames 'row_col.ext'
+  // Opción 1: Configuración completa
+  config?: KeyShotXRConfig;
+
+  // Opción 2: Props individuales (retrocompatibilidad)
+  containerId?: string;
+  baseUrl?: string;
   width?: number;
   height?: number;
   columns?: number;
   rows?: number;
   backgroundColor?: string;
+  imageExt?: "png" | "jpg" | "webp";
+
+  // Props adicionales
   className?: string;
   style?: React.CSSProperties;
-  imageExt?: "png" | "jpg" | "webp";
+
+  // Eventos
+  onLoad?: () => void;
+  onProgress?: (progress: number) => void;
+  onError?: (error: string) => void;
 }
 
-export default function KeyShotXRViewer({
-  containerId = "KeyShotXR",
+function KeyShotXRViewer({
+  config,
+  containerId,
   baseUrl,
-  width = 1024,
-  height = 575,
-  columns = 36,
-  rows = 5,
-  backgroundColor = "#000000",
+  width,
+  height,
+  columns,
+  rows,
+  backgroundColor,
+  imageExt,
   className,
   style,
-  imageExt = "png",
+  onLoad,
+  onProgress,
+  onError,
 }: KeyShotXRProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Mergear configuración: prioridad a config, fallback a props individuales
+  const mergedConfig = useMemo(() => {
+    if (config) {
+      // Si se proporciona config, usarlo con valores por defecto
+      return {
+        nameOfDiv: config.nameOfDiv || "KeyShotXR",
+        folderName: baseUrl || "",
+        viewPortWidth: config.viewPortWidth || 1024,
+        viewPortHeight: config.viewPortHeight || 575,
+        backgroundColor: config.backgroundColor || "#000000",
+        uCount: config.uCount || 36,
+        vCount: config.vCount || 5,
+        uWrap: config.uWrap !== undefined ? config.uWrap : true,
+        vWrap: config.vWrap !== undefined ? config.vWrap : false,
+        uMouseSensitivity:
+          config.uMouseSensitivity !== undefined
+            ? config.uMouseSensitivity
+            : -0.1,
+        vMouseSensitivity:
+          config.vMouseSensitivity !== undefined
+            ? config.vMouseSensitivity
+            : 0.0625,
+        uStartIndex:
+          config.uStartIndex !== undefined
+            ? config.uStartIndex
+            : Math.floor((config.uCount || 36) / 2),
+        vStartIndex: config.vStartIndex !== undefined ? config.vStartIndex : 0,
+        minZoom: config.minZoom !== undefined ? config.minZoom : 1,
+        maxZoom: config.maxZoom !== undefined ? config.maxZoom : 1,
+        rotationDamping:
+          config.rotationDamping !== undefined ? config.rotationDamping : 0.96,
+        downScaleToBrowser:
+          config.downScaleToBrowser !== undefined
+            ? config.downScaleToBrowser
+            : true,
+        addDownScaleGUIButton:
+          config.addDownScaleGUIButton !== undefined
+            ? config.addDownScaleGUIButton
+            : false,
+        downloadOnInteraction:
+          config.downloadOnInteraction !== undefined
+            ? config.downloadOnInteraction
+            : false,
+        imageExtension: config.imageExtension || "png",
+        showLoading:
+          config.showLoading !== undefined ? config.showLoading : true,
+        loadingIcon: config.loadingIcon || "80X80.png",
+        allowFullscreen:
+          config.allowFullscreen !== undefined ? config.allowFullscreen : true,
+        uReverse: config.uReverse !== undefined ? config.uReverse : false,
+        vReverse: config.vReverse !== undefined ? config.vReverse : false,
+        hotspots: config.hotspots || {},
+        isIBooksWidget:
+          config.isIBooksWidget !== undefined ? config.isIBooksWidget : false,
+      };
+    } else {
+      // Retrocompatibilidad con props individuales
+      const cols = columns || 36;
+      const rws = rows || 5;
+      return {
+        nameOfDiv: containerId || "KeyShotXR",
+        folderName: baseUrl || "",
+        viewPortWidth: width || 1024,
+        viewPortHeight: height || 575,
+        backgroundColor: backgroundColor || "#000000",
+        uCount: cols,
+        vCount: rws,
+        uWrap: true,
+        vWrap: false,
+        uMouseSensitivity: -0.1,
+        vMouseSensitivity: 0.0625,
+        uStartIndex: Math.floor(cols / 2),
+        vStartIndex: 0,
+        minZoom: 1,
+        maxZoom: 1,
+        rotationDamping: 0.96,
+        downScaleToBrowser: true,
+        addDownScaleGUIButton: false,
+        downloadOnInteraction: false,
+        imageExtension: imageExt || "png",
+        showLoading: true,
+        loadingIcon: "80X80.png",
+        allowFullscreen: true,
+        uReverse: false,
+        vReverse: false,
+        hotspots: {},
+        isIBooksWidget: false,
+      };
+    }
+  }, [
+    config,
+    containerId,
+    baseUrl,
+    width,
+    height,
+    columns,
+    rows,
+    backgroundColor,
+    imageExt,
+  ]);
+
   const normalized = useMemo(() => {
-    if (!baseUrl || typeof baseUrl !== "string") return null;
-    const base = baseUrl.replace(/\/+$/, "");
-    const startCol = Math.floor(columns / 2);
-    const startRow = Math.floor(rows / 2);
-    const initialFrame = `${base}/${startRow}_${startCol}.${imageExt}`;
+    const cfg = mergedConfig;
+
+    if (!cfg.folderName || typeof cfg.folderName !== "string") return null;
+
+    const base = cfg.folderName.replace(/\/+$/, "");
+    const startCol = cfg.uStartIndex;
+    const startRow = cfg.vStartIndex;
+    const initialFrame = `${base}/${startRow}_${startCol}.${cfg.imageExtension}`;
+
     let origin = "";
     try {
       origin = new URL(base, window.location.origin).origin;
     } catch {
       origin = "";
     }
-    return { base, startCol, startRow, initialFrame, origin };
-  }, [baseUrl, columns, rows, imageExt]);
+
+    return {
+      base,
+      startCol,
+      startRow,
+      initialFrame,
+      origin,
+      config: cfg,
+    };
+  }, [mergedConfig]);
 
   useEffect(() => {
     if (!iframeRef.current) return;
 
     if (!normalized) {
-      console.error(
-        "KeyShotXRViewer: baseUrl es requerido y debe ser string. Recibido:",
-        baseUrl
-      );
+      const errorMsg =
+        "KeyShotXRViewer: folderName/baseUrl es requerido y debe ser string.";
+      console.error(errorMsg);
+      onError?.(errorMsg);
       return;
     }
 
-    const { base, startCol, startRow, initialFrame, origin } = normalized;
+    const {
+      base,
+      startCol,
+      startRow,
+      initialFrame,
+      origin,
+      config: cfg,
+    } = normalized;
 
     // Preconexión al host para reducir el RTT inicial
     const preconnect = origin
@@ -83,51 +250,77 @@ export default function KeyShotXRViewer({
               width: 100%;
               height: 100%;
               overflow: hidden;
-              background: ${backgroundColor};
+              background: ${cfg.backgroundColor};
             }
-            #${containerId} {
+            #${cfg.nameOfDiv} {
               width: 100%;
               height: 100%;
               /* Mostrar algo al instante: el frame inicial como fondo */
-              background: ${backgroundColor} url("${initialFrame}") center / contain no-repeat;
+              background: ${
+                cfg.backgroundColor
+              } url("${initialFrame}") center / contain no-repeat;
             }
           </style>
           <!-- Carga diferida del script y arranque con DOMContentLoaded para no esperar a window.onload -->
           <script src="/js/KeyShotXR.js" defer></script>
           <script defer>
             function initKeyShotXR() {
-              console.log("KeyShotXR baseUrl:", "${base}");
-              console.log("Primer frame esperado:", "${initialFrame}");
+              //console.log("KeyShotXR config:", ${JSON.stringify(cfg)});
+              //console.log("Primer frame esperado:", "${initialFrame}");
 
               var keyshotXR = new window.keyshotXR(
-                "${containerId}",
+                "${cfg.nameOfDiv}",
                 "${base}",
-                ${width},
-                ${height},
-                "${backgroundColor}",
-                ${columns},              // columnas
-                ${rows},                 // filas
-                true,                    // wrap horizontal
-                false,                   // wrap vertical
-                -0.1,                    // sensibilidad X
-                0.0625,                  // sensibilidad Y
-                ${startCol},             // columna inicial
-                ${startRow},             // fila inicial
-                1,                       // zoom min
-                1,                       // zoom max
-                0.96,                    // inercia
-                true,                    // flexible
-                false,                   // botón fullscreen
-                false,                   // overlay tap-to-start
-                "${imageExt}",           // extensión
-                true,                    // spinner
-                "80X80.png",             // logo spinner
-                true,                    // Ga
-                false,                   // Ha
-                false,                   // Ia
-                {},                      // hotspots
-                false                    // Ja
+                ${cfg.viewPortWidth},
+                ${cfg.viewPortHeight},
+                "${cfg.backgroundColor}",
+                ${cfg.uCount},
+                ${cfg.vCount},
+                ${cfg.uWrap},
+                ${cfg.vWrap},
+                ${cfg.uMouseSensitivity},
+                ${cfg.vMouseSensitivity},
+                ${cfg.uStartIndex},
+                ${cfg.vStartIndex},
+                ${cfg.minZoom},
+                ${cfg.maxZoom},
+                ${cfg.rotationDamping},
+                ${cfg.downScaleToBrowser},
+                ${cfg.addDownScaleGUIButton},
+                ${cfg.downloadOnInteraction},
+                "${cfg.imageExtension}",
+                ${cfg.showLoading},
+                "${cfg.loadingIcon}",
+                ${cfg.allowFullscreen},
+                ${cfg.uReverse},
+                ${cfg.vReverse},
+                ${JSON.stringify(cfg.hotspots)},
+                ${cfg.isIBooksWidget}
               );
+
+              // Sobrescribir el método de progreso para reportar al componente React
+              var originalSaMethod = keyshotXR.Sa;
+              keyshotXR.Sa = function(progress) {
+                originalSaMethod.call(keyshotXR, progress);
+                // Comunicar el progreso al componente padre
+                window.parent.postMessage({
+                  type: 'keyshot-progress',
+                  containerId: '${cfg.nameOfDiv}',
+                  progress: progress * 100
+                }, '*');
+              };
+
+              // Sobrescribir el método de carga completa
+              var originalRaMethod = keyshotXR.Ra;
+              keyshotXR.Ra = function() {
+                originalRaMethod.call(keyshotXR);
+                // Notificar que la carga está completa
+                window.parent.postMessage({
+                  type: 'keyshot-loaded',
+                  containerId: '${cfg.nameOfDiv}'
+                }, '*');
+                console.log("KeyShotXR: Todas las imágenes cargadas");
+              };
 
               // Paralelismo y semilla de descargas (ajusta entre 6–12 según CDN)
               keyshotXR.Aa = 8;
@@ -142,13 +335,20 @@ export default function KeyShotXRViewer({
                 var s = document.createElement("script");
                 s.src = "/js/KeyShotXR.js";
                 s.onload = initKeyShotXR;
+                s.onerror = function() {
+                  window.parent.postMessage({
+                    type: 'keyshot-error',
+                    containerId: '${cfg.nameOfDiv}',
+                    error: 'Failed to load KeyShotXR.js'
+                  }, '*');
+                };
                 document.head.appendChild(s);
               }
             });
           </script>
         </head>
         <body oncontextmenu="return false;">
-          <div id="${containerId}"></div>
+          <div id="${cfg.nameOfDiv}"></div>
         </body>
       </html>
     `;
@@ -159,24 +359,39 @@ export default function KeyShotXRViewer({
       iframeDoc.write(html);
       iframeDoc.close();
     }
-  }, [
-    normalized,
-    containerId,
-    width,
-    height,
-    backgroundColor,
-    columns,
-    rows,
-    imageExt,
-    className,
-    style,
-  ]);
+
+    // Escuchar mensajes del iframe
+    const handleMessage = (event: MessageEvent) => {
+      if (
+        event.data.type === "keyshot-loaded" &&
+        event.data.containerId === cfg.nameOfDiv
+      ) {
+        onLoad?.();
+      } else if (
+        event.data.type === "keyshot-progress" &&
+        event.data.containerId === cfg.nameOfDiv
+      ) {
+        onProgress?.(Math.round(event.data.progress));
+      } else if (
+        event.data.type === "keyshot-error" &&
+        event.data.containerId === cfg.nameOfDiv
+      ) {
+        onError?.(event.data.error);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [normalized, onLoad, onProgress, onError]);
 
   return (
     <div
       style={{
-        width: width,
-        height: height,
+        width: mergedConfig.viewPortWidth,
+        height: mergedConfig.viewPortHeight,
         position: "relative",
         overflow: "hidden",
         ...style,
@@ -189,10 +404,59 @@ export default function KeyShotXRViewer({
           width: "100%",
           height: "100%",
           border: "none",
-          backgroundColor: "#000000",
+          backgroundColor: mergedConfig.backgroundColor,
         }}
         allow="fullscreen"
       />
     </div>
   );
 }
+
+// Función de comparación para memo - evita re-renders innecesarios
+function arePropsEqual(
+  prevProps: Readonly<KeyShotXRProps>,
+  nextProps: Readonly<KeyShotXRProps>
+): boolean {
+  // Comparar config (objeto de configuración completo)
+  if (prevProps.config !== nextProps.config) {
+    // Si ambos son objetos, comparar propiedades críticas
+    if (prevProps.config && nextProps.config) {
+      const criticalKeys: (keyof KeyShotXRConfig)[] = [
+        "folderName",
+        "viewPortWidth",
+        "viewPortHeight",
+        "uCount",
+        "vCount",
+        "nameOfDiv",
+      ];
+
+      for (const key of criticalKeys) {
+        if (prevProps.config[key] !== nextProps.config[key]) {
+          return false;
+        }
+      }
+    } else if (prevProps.config !== nextProps.config) {
+      return false;
+    }
+  }
+
+  // Comparar props individuales críticas
+  if (
+    prevProps.baseUrl !== nextProps.baseUrl ||
+    prevProps.containerId !== nextProps.containerId ||
+    prevProps.width !== nextProps.width ||
+    prevProps.height !== nextProps.height ||
+    prevProps.columns !== nextProps.columns ||
+    prevProps.rows !== nextProps.rows
+  ) {
+    return false;
+  }
+
+  // No comparar callbacks (onLoad, onProgress, onError)
+  // ya que usar useCallback los mantiene estables
+
+  return true;
+}
+
+// Usar memo con comparación personalizada para evitar re-renders innecesarios
+export default memo(KeyShotXRViewer, arePropsEqual);

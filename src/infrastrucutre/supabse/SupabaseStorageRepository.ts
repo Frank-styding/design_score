@@ -42,7 +42,9 @@ export class SupabaseStorageRepository implements IStorageRepository {
   }> {
     const { data, error } = await this.supabaseClient.storage
       .from("files")
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        upsert: true, // ✅ Sobrescribir si ya existe
+      });
     if (error) {
       return { ok: false, error: error.message, data: null };
     }
