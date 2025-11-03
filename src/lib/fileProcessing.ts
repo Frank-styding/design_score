@@ -52,11 +52,11 @@ export async function compressImage(file: File): Promise<File> {
       lastModified: compressedFile.lastModified,
     });
 
-    console.log(
+    /*     console.log(
       `✅ Comprimido: ${originalName} (${(file.size / 1024).toFixed(1)}KB → ${(
         renamedFile.size / 1024
       ).toFixed(1)}KB)`
-    );
+    ); */
 
     return renamedFile;
   } catch (error) {
@@ -90,9 +90,9 @@ export async function processFiles(selectedFiles: FileList): Promise<{
   if (!mainHtmlFile) throw new Error("No se encontró archivo HTML principal");
 
   // Comprimir todas las imágenes en paralelo
-  console.log(`🔄 Comprimiendo ${imageFiles.length} imágenes...`);
+  /*   console.log(`🔄 Comprimiendo ${imageFiles.length} imágenes...`); */
   const images = await Promise.all(imageFiles.map(compressImage));
-  console.log("✅ Todas las imágenes comprimidas");
+  /*   console.log("✅ Todas las imágenes comprimidas"); */
 
   const fileReader = new FileReader();
 

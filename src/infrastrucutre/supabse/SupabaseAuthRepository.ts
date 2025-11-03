@@ -74,32 +74,6 @@ export class SupabaseAuthRepository implements IAuthRepository {
     try {
       const { data, error } = await this.supabaseClient.auth.getUser();
 
-      // Si hay error de sesión inválida/expirada, retornar null en lugar de lanzar error
-      if (error) {
-        // Errores comunes de sesión no válida
-        const sessionErrors = [
-          "invalid claim: missing sub claim",
-          "invalid jwt",
-          "jwt expired",
-          "session not found",
-          "user not found",
-        ];
-
-        const isSessionError = sessionErrors.some((err) =>
-          error.message.toLowerCase().includes(err)
-        );
-
-        if (isSessionError) {
-          console.warn("⚠️ Sesión inválida o expirada, limpiando...");
-          // Limpiar sesión corrupta
-          await this.supabaseClient.auth.signOut({ scope: "local" });
-          return null;
-        }
-
-        // Otros errores sí lanzarlos
-        throw new Error(error.message);
-      }
-
       if (!data.user) {
         return null;
       }

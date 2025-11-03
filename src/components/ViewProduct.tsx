@@ -77,7 +77,7 @@ export default function ViewProduct({ adminId }: ViewProductProps) {
       </div>
     );
   }
-  console.log("Productos cargados:", selectedProduct);
+  /*   console.log("Productos cargados:", selectedProduct); */
 
   return (
     <div className="h-screen flex flex-col">

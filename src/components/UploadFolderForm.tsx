@@ -54,7 +54,7 @@ export default function UploadFolderForm({
       }
 
       productId = newProduct.id;
-      console.log("✅ Producto creado:", productId);
+      /*       console.log("✅ Producto creado:", productId); */
 
       // 2. Procesar archivos (comprimir imágenes + extraer constantes)
 
@@ -94,9 +94,9 @@ export default function UploadFolderForm({
       }
 
       const totalBatches = batches.length;
-      console.log(
+      /*       console.log(
         `📦 Total de lotes creados: ${totalBatches} (máx 512KB cada uno)`
-      );
+      ); */
 
       // Subir cada lote secuencialmente
       for (let i = 0; i < batches.length; i++) {
@@ -111,10 +111,10 @@ export default function UploadFolderForm({
         setMessage(
           `Subiendo lote ${batchNumber}/${totalBatches} (${batch.length} imágenes, ${batchSizeMB}MB)...`
         );
-        console.log(
+        /*        console.log(
           `📤 Lote ${batchNumber}/${totalBatches}: ${batch.length} imágenes (${batchSizeMB}MB)`
         );
-
+ */
         const result = await addImagesBatchAction(
           productId,
           batch,
@@ -128,9 +128,9 @@ export default function UploadFolderForm({
         }
 
         uploadedCount += result.uploaded;
-        console.log(
+        /*         console.log(
           `✅ Lote ${batchNumber}/${totalBatches} completado (${result.uploaded} imágenes)`
-        );
+        ); */
       }
 
       setMessage(
@@ -150,7 +150,7 @@ export default function UploadFolderForm({
             "../app/actions/productActions"
           );
           await deleteProductAction(productId);
-          console.log("🔄 Producto eliminado por rollback");
+          /*           console.log("🔄 Producto eliminado por rollback"); */
         } catch (rollbackError) {
           console.error("⚠️ Error en rollback:", rollbackError);
         }

@@ -61,6 +61,14 @@ export class ProductUseCase {
   }
 
   /**
+   * Obtiene todos los productos públicos (sin filtro de admin)
+   * Útil para encuestas públicas
+   */
+  async getAllPublicProducts() {
+    return await this.productRepository.findAllPublic();
+  }
+
+  /**
    * Actualiza la información de un producto
    */
   async updateProduct(

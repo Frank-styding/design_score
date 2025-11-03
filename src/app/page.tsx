@@ -1,76 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AuthForm from "../components/AuthForm";
-import UploadFolderForm from "../components/UploadFolderForm";
-import ViewProduct from "../components/ViewProduct";
-import { signOutAction } from "./actions/authActions";
 
-export default function Home() {
-  const [displayView, setDisplayView] = useState(true);
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
-  const [key, setKey] = useState(0); // Key para forzar re-render y limpiar estado
+export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
-  const handleSignOut = async () => {
-    try {
-      await signOutAction();
-      // Limpiar TODO el estado de la aplicación
-      setUser(null);
-      setDisplayView(true); // Volver a vista de subida
-      setKey((prev) => prev + 1); // Forzar re-render para limpiar componentes hijos
-      console.log("✅ Sesión cerrada y estado limpiado");
-    } catch (error) {
-      console.error("Error al cerrar sesión:", error);
+  useEffect(() => {
+    // Obtener la ruta a la que se debe redirigir después del login
+    const redirect = searchParams.get("redirectTo");
+    if (redirect) {
+      setRedirectTo(redirect);
+      /* console.log("📍 Redirigirá a:", redirect); */
     }
-  };
+  }, [searchParams]);
 
   const handleAuthSuccess = (authenticatedUser: {
     id: string;
     email: string;
   }) => {
-    setUser(authenticatedUser);
+    /*  console.log("✅ Usuario autenticado:", authenticatedUser.email); */
+
+    // Redirigir a la ruta guardada o al dashboard por defecto
+    const destination = redirectTo || "/dashboard";
+    /*   console.log("🚀 Redirigiendo a:", destination); */
+    router.push(destination);
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gray-50">
-      {displayView ? (
-        !user ? (
-          <AuthForm key={key} onAuthSuccess={handleAuthSuccess} />
-        ) : (
-          <div className="flex flex-col items-center">
-            <button
-              onClick={handleSignOut}
-              className="bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded mb-6"
-            >
-              Cerrar Sesión
-            </button>
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="mb-8 text-center">
+        <h1 className="text-4xl font-bold text-gray-800 mb-2">Design Score</h1>
+        <p className="text-gray-600">
+          Plataforma de visualización 3D interactiva
+        </p>
+      </div>
 
-            <UploadFolderForm
-              key={key}
-              adminId={user.id}
-              onSuccess={(productId) => {
-                console.log("Producto subido exitosamente:", productId);
-              }}
-            />
-            <button
-              className="bg-green-600 hover:bg-green-500 text-white py-2 px-4 rounded mt-6"
-              onClick={() => setDisplayView(!displayView)}
-            >
-              {displayView ? "Ver Productos" : "Subir Producto"}
-            </button>
-          </div>
-        )
-      ) : (
-        <>
-          <ViewProduct key={key} adminId={user?.id} />
-          <button
-            className="bg-green-600 hover:bg-green-500 text-white py-2 px-4 rounded mt-6"
-            onClick={() => setDisplayView(!displayView)}
-          >
-            {displayView ? "Ver Productos" : "Subir Producto"}
-          </button>
-        </>
+      {redirectTo && (
+        <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md">
+          <p className="text-sm text-yellow-800">
+            ⚠️ Debes iniciar sesión para acceder a esta página
+          </p>
+        </div>
       )}
+
+      <AuthForm onAuthSuccess={handleAuthSuccess} />
+
+      <div className="mt-6 text-sm text-gray-500 text-center">
+        <p>Inicia sesión para acceder a la plataforma</p>
+      </div>
     </div>
   );
 }

@@ -100,7 +100,8 @@ export class SupabaseProductRepository implements IProductRepository {
       size: data.size,
       num_images: data.num_images,
       constants: data.constants,
-      coverImageId: data.cover_image_id,
+      coverImage: data.cover_image,
+      adminId: data.admin_id,
     };
   }
 
@@ -119,7 +120,27 @@ export class SupabaseProductRepository implements IProductRepository {
       size: row.size,
       num_images: row.num_images,
       constants: row.constants,
-      coverImageId: row.cover_image_id,
+      coverImage: row.cover_image,
+      adminId: row.admin_id,
+    }));
+  }
+
+  async findAllPublic(): Promise<Product[]> {
+    const { data, error } = await this.supabaseClient
+      .from("product")
+      .select("*");
+
+    if (error || !data) return [];
+
+    return data.map((row: any) => ({
+      id: row.product_id,
+      name: row.name,
+      description: row.description,
+      size: row.size,
+      num_images: row.num_images,
+      constants: row.constants,
+      coverImage: row.cover_image,
+      adminId: row.admin_id, // Incluir admin_id para construir URLs del Storage
     }));
   }
 
@@ -135,8 +156,8 @@ export class SupabaseProductRepository implements IProductRepository {
       updateData.description = updates.description;
     if (updates.constants !== undefined)
       updateData.constants = updates.constants;
-    if (updates.coverImageId !== undefined)
-      updateData.cover_image_id = updates.coverImageId;
+    if (updates.coverImage !== undefined)
+      updateData.cover_image = updates.coverImage;
 
     const { data, error } = await this.supabaseClient
       .from("product")
@@ -158,7 +179,7 @@ export class SupabaseProductRepository implements IProductRepository {
       size: data.size,
       num_images: data.num_images,
       constants: data.constants,
-      coverImageId: data.cover_image_id,
+      coverImage: data.cover_image,
     };
 
     return { product: updatedProduct, ok: true, error: null };
@@ -235,7 +256,7 @@ export class SupabaseProductRepository implements IProductRepository {
       size: row.size,
       num_images: row.num_images,
       constants: row.constants,
-      coverImageId: row.cover_image_id,
+      coverImage: row.cover_image,
     }));
   }
 }

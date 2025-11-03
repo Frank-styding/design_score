@@ -276,11 +276,11 @@ CREATE POLICY "Cualquier persona puede enviar respuestas a encuestas públicas"
     );
 
 -- ==================================================
--- TABLA SURVEY_PRODUCT (Unión)
+-- TABLA SURVEY_PRODUCT (Relación Many-to-Many)
 -- ==================================================
 CREATE TABLE IF NOT EXISTS public.survey_product (
-    survey_id uuid REFERENCES public.survey(survey_id) ON DELETE CASCADE,
-    product_id uuid REFERENCES public.product(product_id) ON DELETE CASCADE,
+    survey_id uuid REFERENCES public.survey(survey_id) ON DELETE CASCADE NOT NULL,
+    product_id uuid REFERENCES public.product(product_id) ON DELETE CASCADE NOT NULL,
     PRIMARY KEY (survey_id, product_id)
 );
 
@@ -323,11 +323,11 @@ CREATE POLICY "Admins pueden desvincular productos"
     );
 
 -- ==================================================
--- TABLA QUESTION_PRODUCT (Unión)
+-- TABLA QUESTION_PRODUCT (Relación Many-to-Many)
 -- ==================================================
 CREATE TABLE IF NOT EXISTS public.question_product (
-    question_id uuid REFERENCES public.question(question_id) ON DELETE CASCADE,
-    product_id uuid REFERENCES public.product(product_id) ON DELETE CASCADE,
+    question_id uuid REFERENCES public.question(question_id) ON DELETE CASCADE NOT NULL,
+    product_id uuid REFERENCES public.product(product_id) ON DELETE CASCADE NOT NULL,
     PRIMARY KEY (question_id, product_id)
 );
 

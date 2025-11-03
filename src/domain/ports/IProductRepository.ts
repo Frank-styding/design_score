@@ -20,6 +20,8 @@ export interface IProductRepository {
 
   findAll(adminId: string): Promise<Product[]>;
 
+  findAllPublic(): Promise<Product[]>;
+
   updateProduct(
     productId: string,
     adminId: string,

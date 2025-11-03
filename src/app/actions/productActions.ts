@@ -245,6 +245,28 @@ export async function getAllProductsAction(): Promise<Product[]> {
 }
 
 /**
+ * Obtiene todos los productos públicos (sin autenticación requerida)
+ * Útil para encuestas públicas donde los participantes no están autenticados
+ */
+export async function getAllPublicProductsAction(): Promise<Product[]> {
+  try {
+    const client = await createClient();
+    const storageRepository = new SupabaseStorageRepository(client);
+    const productRepository = new SupabaseProductRepository(
+      client,
+      storageRepository
+    );
+    const productUseCase = new ProductUseCase(productRepository);
+
+    // Obtener todos los productos sin filtrar por admin_id
+    return await productUseCase.getAllPublicProducts();
+  } catch (error) {
+    console.error("Error getting public products:", error);
+    return [];
+  }
+}
+
+/**
  * Actualiza un producto
  */
 export async function updateProductAction(
@@ -328,5 +350,34 @@ export async function searchProductsAction(
   } catch (error) {
     console.error("Error searching products:", error);
     return [];
+  }
+}
+
+/**
+ * Obtiene el conteo de productos del usuario actual
+ */
+export async function getProductsCountAction(): Promise<number> {
+  try {
+    const client = await createClient();
+    const authRepository = new SupabaseAuthRepository(client);
+    const authUseCase = new AuthUseCase(authRepository);
+
+    const admin = await authUseCase.getCurrentUser();
+    if (!admin) return 0;
+
+    const { count, error } = await client
+      .from("product")
+      .select("*", { count: "exact", head: true })
+      .eq("admin_id", admin.id);
+
+    if (error) {
+      console.error("Error counting products:", error);
+      return 0;
+    }
+
+    return count || 0;
+  } catch (error) {
+    console.error("Error counting products:", error);
+    return 0;
   }
 }
