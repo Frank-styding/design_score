@@ -2,8 +2,7 @@ import { Product } from "../entities/Product";
 
 export interface IProductRepository {
   createProduct(
-    product: Product,
-    adminId: string
+    product: Product
   ): Promise<{ product: Product | null; ok: boolean; error: string | null }>;
 
   addImageToProduct(
@@ -16,22 +15,20 @@ export interface IProductRepository {
     error: string | null;
   }>;
 
-  findById(productId: string, adminId: string): Promise<Product | null>;
+  findById(productId: string): Promise<Product | null>;
 
-  findAll(adminId: string): Promise<Product[]>;
+  findByProjectId(projectId: string): Promise<Product[]>;
 
-  findAllPublic(): Promise<Product[]>;
+  findByAdminId(adminId: string): Promise<Product[]>;
 
   updateProduct(
     productId: string,
-    adminId: string,
     updates: Partial<Product>
   ): Promise<{ product: Product | null; ok: boolean; error: string | null }>;
 
   deleteProduct(
-    productId: string,
-    adminId: string
+    productId: string
   ): Promise<{ ok: boolean; error: string | null }>;
 
-  searchProducts(adminId: string, searchTerm: string): Promise<Product[]>;
+  searchProducts(projectId: string, searchTerm: string): Promise<Product[]>;
 }

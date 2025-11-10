@@ -10,16 +10,19 @@ export class SupabaseProductRepository implements IProductRepository {
   ) {}
 
   async createProduct(
-    product: Product,
-    adminId: string
+    product: Product
   ): Promise<{ product: Product | null; ok: boolean; error: string | null }> {
     const { data, error } = await this.supabaseClient
-      .from("product")
+      .from("products")
       .insert({
+        admin_id: product.admin_id,
+        project_id: product.project_id,
         name: product.name,
         description: product.description,
-        admin_id: adminId,
+        cover_image: product.cover_image,
         constants: product.constants,
+        path: product.path,
+        weight: product.weight || 0,
       })
       .select()
       .single();
@@ -27,10 +30,9 @@ export class SupabaseProductRepository implements IProductRepository {
     if (error) {
       return { product: null, ok: false, error: error.message };
     }
-    //console.log(data);
-    // Actualizamos el objeto producto con el ID real asignado
+
     return {
-      product: { ...product, id: data.product_id },
+      product: this.mapToProduct(data),
       ok: true,
       error: null,
     };
@@ -46,7 +48,7 @@ export class SupabaseProductRepository implements IProductRepository {
     error: string | null;
   }> {
     try {
-      // --- Subir archivo a Storage ---
+      // --- Subir archivo a Storage usando admin_id y product_id ---
       const path = `${adminId}/${productId}/${image.name}`;
       const { data: uploadData, error: uploadError } =
         await this.storageRepository.uploadFile(path, image);
@@ -57,20 +59,18 @@ export class SupabaseProductRepository implements IProductRepository {
 
       const { url } = await this.storageRepository.getFileUrl(path);
 
-      // --- Usar función RPC para incremento atómico ---
-      // Esto evita race conditions en batch paralelo
-      const { error: rpcError } = await this.supabaseClient.rpc(
-        "increment_product_counters",
-        {
-          p_product_id: productId,
-          p_admin_id: adminId,
-          p_size_increment: image.size,
-          p_cover_image_url: isFirstImage ? url : null,
-        }
-      );
+      // --- Si es la primera imagen, actualizar cover_image ---
+      if (isFirstImage) {
+        const { error: updateError } = await this.supabaseClient
+          .from("products")
+          .update({ cover_image: url })
+          .eq("product_id", productId);
 
-      if (rpcError) {
-        throw new Error(`Error actualizando contadores: ${rpcError.message}`);
+        if (updateError) {
+          throw new Error(
+            `Error actualizando cover_image: ${updateError.message}`
+          );
+        }
       }
 
       return {
@@ -83,70 +83,44 @@ export class SupabaseProductRepository implements IProductRepository {
     }
   }
 
-  async findById(productId: string, adminId: string): Promise<Product | null> {
+  async findById(productId: string): Promise<Product | null> {
     const { data, error } = await this.supabaseClient
-      .from("product")
+      .from("products")
       .select("*")
       .eq("product_id", productId)
-      .eq("admin_id", adminId)
       .single();
 
     if (error || !data) return null;
 
-    return {
-      id: data.product_id,
-      name: data.name,
-      description: data.description,
-      size: data.size,
-      num_images: data.num_images,
-      constants: data.constants,
-      coverImage: data.cover_image,
-      adminId: data.admin_id,
-    };
+    return this.mapToProduct(data);
   }
 
-  async findAll(adminId: string): Promise<Product[]> {
+  async findByProjectId(projectId: string): Promise<Product[]> {
     const { data, error } = await this.supabaseClient
-      .from("product")
+      .from("products")
       .select("*")
-      .eq("admin_id", adminId);
+      .eq("project_id", projectId)
+      .order("weight", { ascending: true });
 
     if (error || !data) return [];
 
-    return data.map((row: any) => ({
-      id: row.product_id,
-      name: row.name,
-      description: row.description,
-      size: row.size,
-      num_images: row.num_images,
-      constants: row.constants,
-      coverImage: row.cover_image,
-      adminId: row.admin_id,
-    }));
+    return data.map((row: any) => this.mapToProduct(row));
   }
 
-  async findAllPublic(): Promise<Product[]> {
+  async findByAdminId(adminId: string): Promise<Product[]> {
     const { data, error } = await this.supabaseClient
-      .from("product")
-      .select("*");
+      .from("products")
+      .select("*")
+      .eq("admin_id", adminId)
+      .order("created_at", { ascending: false });
 
     if (error || !data) return [];
 
-    return data.map((row: any) => ({
-      id: row.product_id,
-      name: row.name,
-      description: row.description,
-      size: row.size,
-      num_images: row.num_images,
-      constants: row.constants,
-      coverImage: row.cover_image,
-      adminId: row.admin_id, // Incluir admin_id para construir URLs del Storage
-    }));
+    return data.map((row: any) => this.mapToProduct(row));
   }
 
   async updateProduct(
     productId: string,
-    adminId: string,
     updates: Partial<Product>
   ): Promise<{ product: Product | null; ok: boolean; error: string | null }> {
     // Construir objeto de actualización solo con campos permitidos
@@ -154,16 +128,17 @@ export class SupabaseProductRepository implements IProductRepository {
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.description !== undefined)
       updateData.description = updates.description;
+    if (updates.cover_image !== undefined)
+      updateData.cover_image = updates.cover_image;
     if (updates.constants !== undefined)
       updateData.constants = updates.constants;
-    if (updates.coverImage !== undefined)
-      updateData.cover_image = updates.coverImage;
+    if (updates.path !== undefined) updateData.path = updates.path;
+    if (updates.weight !== undefined) updateData.weight = updates.weight;
 
     const { data, error } = await this.supabaseClient
-      .from("product")
+      .from("products")
       .update(updateData)
       .eq("product_id", productId)
-      .eq("admin_id", adminId)
       .select()
       .single();
 
@@ -171,60 +146,38 @@ export class SupabaseProductRepository implements IProductRepository {
       return { product: null, ok: false, error: error.message };
     }
 
-    // Mapear producto actualizado
-    const updatedProduct: Product = {
-      id: data.product_id,
-      name: data.name,
-      description: data.description,
-      size: data.size,
-      num_images: data.num_images,
-      constants: data.constants,
-      coverImage: data.cover_image,
-    };
-
-    return { product: updatedProduct, ok: true, error: null };
+    return { product: this.mapToProduct(data), ok: true, error: null };
   }
 
   async deleteProduct(
-    productId: string,
-    adminId: string
+    productId: string
   ): Promise<{ ok: boolean; error: string | null }> {
     try {
-      // 1. Verificar que el producto existe y pertenece al admin
-      const product = await this.findById(productId, adminId);
+      // 1. Verificar que el producto existe
+      const product = await this.findById(productId);
       if (!product) {
         return { ok: false, error: "Producto no encontrado" };
       }
 
-      // 2. Eliminar carpeta completa del Storage (más eficiente)
-      const folderPath = `${adminId}/${productId}`;
+      // 2. Eliminar carpeta completa del Storage usando StorageRepository
+      const folderPath = `${product.admin_id}/${productId}`;
+      const { ok: deleteFolderOk, error: deleteFolderError } =
+        await this.storageRepository.deleteFolder(folderPath);
 
-      // Listar todos los archivos para obtener sus paths completos
-      const { data: files, error: listError } =
-        await this.supabaseClient.storage.from("files").list(folderPath);
-
-      if (listError) {
-        console.warn("Error listando archivos:", listError.message);
-      }
-
-      // Eliminar todos los archivos de la carpeta en batch
-      if (files && files.length > 0) {
-        const filePaths = files.map((file) => `${folderPath}/${file.name}`);
-        const { error: deleteError } = await this.supabaseClient.storage
-          .from("files")
-          .remove(filePaths);
-
-        if (deleteError) {
-          console.warn("Error eliminando archivos:", deleteError.message);
-        }
+      if (!deleteFolderOk && deleteFolderError) {
+        console.warn(
+          "Error eliminando carpeta del Storage:",
+          deleteFolderError
+        );
       }
 
       // 3. Eliminar el producto de la base de datos
+      // El trigger automáticamente actualizará num_products en projects
+      // CASCADE eliminará registros relacionados en view_products
       const { error: deleteError } = await this.supabaseClient
-        .from("product")
+        .from("products")
         .delete()
-        .eq("product_id", productId)
-        .eq("admin_id", adminId);
+        .eq("product_id", productId);
 
       if (deleteError) {
         throw new Error(deleteError.message);
@@ -238,25 +191,35 @@ export class SupabaseProductRepository implements IProductRepository {
   }
 
   async searchProducts(
-    adminId: string,
+    projectId: string,
     searchTerm: string
   ): Promise<Product[]> {
     const { data, error } = await this.supabaseClient
-      .from("product")
+      .from("products")
       .select("*")
-      .eq("admin_id", adminId)
-      .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+      .eq("project_id", projectId)
+      .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+      .order("weight", { ascending: true });
 
     if (error || !data) return [];
 
-    return data.map((row: any) => ({
-      id: row.product_id,
-      name: row.name,
-      description: row.description,
-      size: row.size,
-      num_images: row.num_images,
-      constants: row.constants,
-      coverImage: row.cover_image,
-    }));
+    return data.map((row: any) => this.mapToProduct(row));
+  }
+
+  // Método helper para mapear datos de DB a la entidad Product
+  private mapToProduct(data: any): Product {
+    return {
+      product_id: data.product_id,
+      admin_id: data.admin_id,
+      project_id: data.project_id,
+      name: data.name,
+      description: data.description,
+      cover_image: data.cover_image,
+      constants: data.constants,
+      path: data.path,
+      weight: parseFloat(data.weight),
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    };
   }
 }

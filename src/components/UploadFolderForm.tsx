@@ -6,14 +6,17 @@ import {
   addImagesBatchAction,
 } from "../app/actions/productActions";
 import { processFiles } from "../lib/fileProcessing";
+import { Product } from "../domain/entities/Product";
 
 interface UploadFolderFormProps {
   adminId: string;
+  projectId?: string;
   onSuccess?: (productId: string) => void;
 }
 
 export default function UploadFolderForm({
   adminId,
+  projectId,
   onSuccess,
 }: UploadFolderFormProps) {
   const [productName, setProductName] = useState("");
@@ -46,14 +49,17 @@ export default function UploadFolderForm({
       // 1. Crear el producto primero
       const newProduct = await createProductAction({
         name: productName,
-        constants: parsedConstants,
-      } as any);
+        project_id: projectId || "",
+        constants: JSON.parse(parsedConstants),
+        admin_id: adminId,
+        weight: 0,
+      });
 
-      if (!newProduct || !newProduct.id) {
+      if (!newProduct || !newProduct.product_id) {
         throw new Error("No se pudo crear el producto");
       }
 
-      productId = newProduct.id;
+      productId = newProduct.product_id;
       /*       console.log("✅ Producto creado:", productId); */
 
       // 2. Procesar archivos (comprimir imágenes + extraer constantes)

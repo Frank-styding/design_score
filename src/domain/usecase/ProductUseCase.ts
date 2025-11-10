@@ -7,31 +7,34 @@ export class ProductUseCase {
   /**
    * Crea un nuevo producto
    */
-  async createProduct(product: Product, adminId: string) {
+  async createProduct(product: Product) {
     if (!product.name || product.name.trim().length === 0) {
       throw new Error("El nombre del producto es requerido");
     }
-    if (!product.constants || product.constants.trim().length === 0) {
-      throw new Error("Las constantes del producto son requeridas");
+    if (!product.admin_id) {
+      throw new Error("El ID del administrador es requerido");
     }
-    return await this.productRepository.createProduct(product, adminId);
+    if (!product.project_id) {
+      throw new Error("El ID del proyecto es requerido");
+    }
+    return await this.productRepository.createProduct(product);
   }
 
   /**
    * Agrega una imagen a un producto existente
    */
-  async addImageToProductAction(
+  async addImageToProduct(
     productId: string,
     adminId: string,
     image: File,
-    isFirstImage: boolean
+    isFirstImage: boolean = false
   ) {
     if (!productId) {
       throw new Error("El ID del producto es requerido");
     }
-    /*    if (!image.url) {
-      throw new Error("La URL de la imagen es requerida");
-    } */
+    if (!adminId) {
+      throw new Error("El ID del administrador es requerido");
+    }
     return await this.productRepository.addImageToProduct(
       productId,
       adminId,
@@ -43,78 +46,71 @@ export class ProductUseCase {
   /**
    * Obtiene un producto por su ID
    */
-  async getProductById(productId: string, adminId: string) {
+  async getProductById(productId: string) {
     if (!productId) {
       throw new Error("El ID del producto es requerido");
     }
-    return await this.productRepository.findById(productId, adminId);
+    return await this.productRepository.findById(productId);
   }
 
   /**
-   * Obtiene todos los productos de un admin
+   * Obtiene todos los productos de un proyecto
    */
-  async getAllProducts(adminId: string) {
-    if (!adminId) {
-      throw new Error("El ID del admin es requerido");
+  async getProductsByProjectId(projectId: string) {
+    if (!projectId) {
+      throw new Error("El ID del proyecto es requerido");
     }
-    return await this.productRepository.findAll(adminId);
+    return await this.productRepository.findByProjectId(projectId);
   }
 
   /**
-   * Obtiene todos los productos públicos (sin filtro de admin)
-   * Útil para encuestas públicas
+   * Obtiene todos los productos de un administrador
    */
-  async getAllPublicProducts() {
-    return await this.productRepository.findAllPublic();
+  async getProductsByAdminId(adminId: string) {
+    if (!adminId) {
+      throw new Error("El ID del administrador es requerido");
+    }
+    return await this.productRepository.findByAdminId(adminId);
   }
 
   /**
    * Actualiza la información de un producto
    */
-  async updateProduct(
-    productId: string,
-    adminId: string,
-    updates: Partial<Product>
-  ) {
+  async updateProduct(productId: string, updates: Partial<Product>) {
     if (!productId) {
       throw new Error("El ID del producto es requerido");
     }
     if (updates.name !== undefined && updates.name.trim().length === 0) {
       throw new Error("El nombre del producto no puede estar vacío");
     }
-    if (
-      updates.constants !== undefined &&
-      updates.constants.trim().length === 0
-    ) {
-      throw new Error("Las constantes del producto no pueden estar vacías");
+    if (updates.weight !== undefined && updates.weight < 0) {
+      throw new Error("El peso del producto no puede ser negativo");
     }
-    return await this.productRepository.updateProduct(
-      productId,
-      adminId,
-      updates
-    );
+    return await this.productRepository.updateProduct(productId, updates);
   }
 
   /**
    * Elimina un producto y todas sus imágenes asociadas
+   * El trigger en la BD actualizará automáticamente num_products en projects
+   * CASCADE eliminará registros relacionados en view_products
    */
-  async deleteProduct(productId: string, adminId: string) {
+  async deleteProduct(productId: string) {
     if (!productId) {
       throw new Error("El ID del producto es requerido");
     }
-    return await this.productRepository.deleteProduct(productId, adminId);
+    return await this.productRepository.deleteProduct(productId);
   }
 
   /**
-   * Busca productos por término de búsqueda
+   * Busca productos por término de búsqueda dentro de un proyecto
    */
-  async searchProducts(adminId: string, searchTerm: string) {
-    if (!adminId) {
-      throw new Error("El ID del admin es requerido");
+  async searchProducts(projectId: string, searchTerm: string) {
+    if (!projectId) {
+      throw new Error("El ID del proyecto es requerido");
     }
     if (!searchTerm || searchTerm.trim().length === 0) {
-      return await this.getAllProducts(adminId);
+      return await this.getProductsByProjectId(projectId);
     }
-    return await this.productRepository.searchProducts(adminId, searchTerm);
+    return await this.productRepository.searchProducts(projectId, searchTerm);
   }
 }

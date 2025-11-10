@@ -24,9 +24,14 @@ export async function createProductAction(
     const admin = await authUseCase.getCurrentUser();
     if (!admin) return null;
 
+    // Asegurar que admin_id esté presente en productData
+    const productWithAdmin = {
+      ...productData,
+      admin_id: admin.id as string,
+    };
+
     const { product, ok } = await productUseCase.createProduct(
-      productData,
-      admin.id as string
+      productWithAdmin
     );
     if (!ok) return null;
 
@@ -60,7 +65,7 @@ export async function addImageToProductAction(
 
     const uploadResults = await Promise.all(
       files.map((imageFile, i) =>
-        productUseCase.addImageToProductAction(
+        productUseCase.addImageToProduct(
           productId,
           admin.id as string,
           imageFile,
@@ -119,7 +124,7 @@ export async function addImagesBatchAction(
 
     // 🔍 DEBUG: Verificar producto y su admin_id
     const { data: productData, error: productError } = await client
-      .from("product")
+      .from("products")
       .select("product_id, name, admin_id")
       .eq("product_id", productId)
       .single();
@@ -155,7 +160,7 @@ export async function addImagesBatchAction(
     // Subir todas las imágenes en paralelo
     const uploadPromises = imageFiles.map((imageFile, index) =>
       productUseCase
-        .addImageToProductAction(
+        .addImageToProduct(
           productId,
           admin.id as string,
           imageFile,
@@ -168,7 +173,6 @@ export async function addImagesBatchAction(
         .catch((error) => ({
           ok: false,
           error: error.message,
-          image: null,
         }))
     );
 
@@ -212,7 +216,7 @@ export async function getProductByIdAction(
 
     if (!admin) return null;
 
-    return await productUseCase.getProductById(productId, admin.id as string);
+    return await productUseCase.getProductById(productId);
   } catch (error) {
     console.error("Error getting product:", error);
     return null;
@@ -237,7 +241,7 @@ export async function getAllProductsAction(): Promise<Product[]> {
     const admin = await authUseCase.getCurrentUser();
     if (!admin) return [];
 
-    return await productUseCase.getAllProducts(admin.id as string);
+    return await productUseCase.getProductsByAdminId(admin.id as string);
   } catch (error) {
     console.error("Error getting products:", error);
     return [];
@@ -245,10 +249,12 @@ export async function getAllProductsAction(): Promise<Product[]> {
 }
 
 /**
- * Obtiene todos los productos públicos (sin autenticación requerida)
+ * Obtiene todos los productos de un proyecto específico (sin autenticación requerida)
  * Útil para encuestas públicas donde los participantes no están autenticados
  */
-export async function getAllPublicProductsAction(): Promise<Product[]> {
+export async function getAllPublicProductsAction(
+  projectId: string
+): Promise<Product[]> {
   try {
     const client = await createClient();
     const storageRepository = new SupabaseStorageRepository(client);
@@ -258,8 +264,8 @@ export async function getAllPublicProductsAction(): Promise<Product[]> {
     );
     const productUseCase = new ProductUseCase(productRepository);
 
-    // Obtener todos los productos sin filtrar por admin_id
-    return await productUseCase.getAllPublicProducts();
+    // Obtener todos los productos del proyecto
+    return await productUseCase.getProductsByProjectId(projectId);
   } catch (error) {
     console.error("Error getting public products:", error);
     return [];
@@ -288,11 +294,7 @@ export async function updateProductAction(
     if (!admin)
       return { ok: false, product: null, error: "No authenticated user" };
 
-    return await productUseCase.updateProduct(
-      productId,
-      admin.id as string,
-      updates
-    );
+    return await productUseCase.updateProduct(productId, updates);
   } catch (error) {
     console.error("Error updating product:", error);
     return { ok: false, product: null, error: String(error) };
@@ -319,7 +321,7 @@ export async function deleteProductAction(
     const admin = await authUseCase.getCurrentUser();
     if (!admin) return { ok: false, error: "No authenticated user" };
 
-    return await productUseCase.deleteProduct(productId, admin.id as string);
+    return await productUseCase.deleteProduct(productId);
   } catch (error) {
     console.error("Error deleting product:", error);
     return { ok: false, error: String(error) };
@@ -327,9 +329,10 @@ export async function deleteProductAction(
 }
 
 /**
- * Busca productos por término de búsqueda
+ * Busca productos por término de búsqueda dentro de un proyecto
  */
 export async function searchProductsAction(
+  projectId: string,
   searchTerm: string
 ): Promise<Product[]> {
   try {
@@ -346,7 +349,7 @@ export async function searchProductsAction(
     const admin = await authUseCase.getCurrentUser();
     if (!admin) return [];
 
-    return await productUseCase.searchProducts(admin.id as string, searchTerm);
+    return await productUseCase.searchProducts(projectId, searchTerm);
   } catch (error) {
     console.error("Error searching products:", error);
     return [];
@@ -366,7 +369,7 @@ export async function getProductsCountAction(): Promise<number> {
     if (!admin) return 0;
 
     const { count, error } = await client
-      .from("product")
+      .from("products")
       .select("*", { count: "exact", head: true })
       .eq("admin_id", admin.id);
 

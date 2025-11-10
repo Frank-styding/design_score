@@ -6,6 +6,8 @@ import {
   signUpAction,
   signOutAction,
 } from "../app/actions/authActions";
+import Input from "./ui/Input";
+import Button from "./ui/Button";
 
 interface AuthFormProps {
   onAuthSuccess: (user: { id: string; email: string }) => void;
@@ -68,62 +70,64 @@ export default function AuthForm({ onAuthSuccess }: AuthFormProps) {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col bg-gray-800 p-4 rounded mb-6 w-80 mx-auto"
-    >
-      <h3 className="text-lg font-semibold mb-3 text-white">
-        {mode === "signin" ? "Iniciar Sesión" : "Crear Cuenta"}
-      </h3>
-
-      <input
-        type="email"
-        placeholder="Correo electrónico"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="mb-2 p-2 rounded bg-white text-black"
-        required
-      />
-      <input
-        type="password"
-        placeholder="Contraseña"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className="mb-3 p-2 rounded bg-white text-black"
-        required
-      />
-
-      {error && <p className="text-red-400 mb-2">{error}</p>}
-
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="bg-blue-600 hover:bg-blue-500 text-white py-2 rounded mb-2 disabled:bg-blue-400 disabled:cursor-not-allowed"
+    <div className="w-full max-w-md mx-auto">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-lg shadow-2xl"
       >
-        {isSubmitting
-          ? "Procesando..."
-          : mode === "signin"
-          ? "Entrar"
-          : "Registrarse"}
-      </button>
+        <div className="flex flex-col gap-6">
+          {/* Campo de Usuario */}
+          <Input
+            type="email"
+            label="Usuario"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
 
-      <button
-        type="button"
-        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-        className="text-blue-300 text-sm hover:underline mb-2"
-      >
-        {mode === "signin"
-          ? "¿No tienes cuenta? Regístrate"
-          : "¿Ya tienes cuenta? Inicia sesión"}
-      </button>
-      {/* 
-      <button
-        type="button"
-        onClick={handleClearSession}
-        className="text-red-300 text-xs hover:underline"
-      >
-        🔄 Limpiar sesión (si tienes problemas)
-      </button> */}
-    </form>
+          {/* Campo de Contraseña */}
+          <Input
+            type="password"
+            label="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+
+          {/* Mensaje de Error */}
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+
+          {/* Botón de Ingreso */}
+          <div className="flex items-center justify-center gap-3">
+            <Button type="submit" variant="primary" isLoading={isSubmitting}>
+              {mode === "signin" ? "Ingresar" : "Registrarse"}
+            </Button>
+
+            {/* Link para cambiar de modo */}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+            >
+              {mode === "signin" ? "¿Olvidaste?" : "← Volver"}
+            </Button>
+          </div>
+        </div>
+      </form>
+
+      {/* Botón secundario para alternar modo */}
+      <div className="mt-4 text-center">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+          className="hover:underline"
+        >
+          {mode === "signin"
+            ? "¿No tienes cuenta? Crear una nueva"
+            : "¿Ya tienes cuenta? Iniciar sesión"}
+        </Button>
+      </div>
+    </div>
   );
 }
