@@ -51,7 +51,7 @@ interface KeyShotXRProps {
   // Props adicionales
   className?: string;
   style?: React.CSSProperties;
-  
+
   // Props para sincronización
   viewerId?: string;
   onIframeReady?: (iframe: HTMLIFrameElement | null) => void;
@@ -81,7 +81,7 @@ function KeyShotXRViewer({
   onError,
 }: KeyShotXRProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  
+
   // Notificar cuando el iframe esté listo
   useEffect(() => {
     if (iframeRef.current && onIframeReady) {
@@ -99,7 +99,7 @@ function KeyShotXRViewer({
     if (config) {
       // Si se proporciona config, usarlo con valores por defecto
       return {
-        nameOfDiv: config.nameOfDiv || "KeyShotXR",
+        nameOfDiv: viewerId || config.nameOfDiv || "KeyShotXR",
         folderName: baseUrl || "",
         viewPortWidth: config.viewPortWidth || 1024,
         viewPortHeight: config.viewPortHeight || 575,
@@ -152,7 +152,7 @@ function KeyShotXRViewer({
       const cols = columns || 36;
       const rws = rows || 5;
       return {
-        nameOfDiv: containerId || "KeyShotXR",
+        nameOfDiv: viewerId || containerId || "KeyShotXR",
         folderName: baseUrl || "",
         viewPortWidth: width || 1024,
         viewPortHeight: height || 575,
@@ -184,6 +184,7 @@ function KeyShotXRViewer({
     }
   }, [
     config,
+    viewerId,
     containerId,
     baseUrl,
     width,
@@ -241,6 +242,10 @@ function KeyShotXRViewer({
       config: cfg,
     } = normalized;
 
+    // Sanitizar el nameOfDiv para usarlo como nombre de variable JavaScript
+    // Reemplazar guiones y otros caracteres no válidos con guiones bajos
+    const sanitizedVarName = cfg.nameOfDiv.replace(/[^a-zA-Z0-9_]/g, "_");
+
     // Preconexión al host para reducir el RTT inicial
     const preconnect = origin
       ? `<link rel="preconnect" href="${origin}" crossorigin>
@@ -297,11 +302,37 @@ function KeyShotXRViewer({
           <!-- Carga diferida del script y arranque con DOMContentLoaded para no esperar a window.onload -->
           <script src="/js/KeyShotXR.js" defer></script>
           <script defer>
+            // Variables globales para sincronización
+            var syncEnabled = false;
+            var keyshotXRInstance = null;
+            
+            // Listener SOLO para recibir comandos de habilitación, el monitoreo lo hace KeyShotXR.js
+            window.addEventListener("message", function(event) {
+              if (event.data.type === "keyshot-sync-enable") {
+                syncEnabled = event.data.enabled;
+                console.log("🔄 [IFRAME-HTML] Sincronización", syncEnabled ? "HABILITADA" : "DESHABILITADA", "en ${
+                  cfg.nameOfDiv
+                }");
+                
+                // Notificar a KeyShotXR.js que está dentro del iframe
+                // El código de KeyShotXR.js ya tiene su propio sistema de sincronización
+              }
+              
+              if (event.data.type === "keyshot-sync-indices") {
+                console.log("📨 [IFRAME-HTML] Recibido sync-indices para ${
+                  cfg.nameOfDiv
+                }");
+                
+                // Reenviar al código de KeyShotXR.js
+                window.postMessage(event.data, "*");
+              }
+            });
+            
             function initKeyShotXR() {
-         /*      console.log("🔍 KeyShotXR - Zoom ampliado habilitado");
-              console.log("📊 Rango de zoom: 0.5x (50%) a 2.0x (200%)");
-              console.log("🖱️ Usa la rueda del mouse SOBRE el modelo para hacer zoom");
- */
+              console.log("🎬 [IFRAME] Inicializando KeyShotXR para:", "${
+                cfg.nameOfDiv
+              }");
+              
               var keyshotXR = new window.keyshotXR(
                 "${cfg.nameOfDiv}",
                 "${base}",
@@ -358,6 +389,18 @@ function KeyShotXRViewer({
               // Paralelismo y semilla de descargas (ajusta entre 6–12 según CDN)
               keyshotXR.Aa = 8;
               for (var i = 1; i < keyshotXR.Aa; i++) keyshotXR.ga();
+              
+              // Guardar instancia en variable global para que el listener pueda acceder
+              keyshotXRInstance = keyshotXR;
+              
+              // Exponer instancia globalmente para sincronización
+              // Usar nombre sanitizado para evitar errores con caracteres especiales en IDs
+              window._keyShotXRInstance_${sanitizedVarName} = keyshotXR;
+              
+              console.log("✅ [IFRAME] KeyShotXR inicializado completamente para:", "${
+                cfg.nameOfDiv
+              }");
+              console.log("🎯 [IFRAME] Listo para recibir mensajes de sincronización");
             }
 
             document.addEventListener("DOMContentLoaded", function(){

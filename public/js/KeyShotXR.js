@@ -1,3 +1,4 @@
+console.log("🔧 KeyShotXR.js CARGADO - Versión con sincronización");
 var p = !0,
   t = null,
   u = !1;
@@ -1130,5 +1131,226 @@ window.keyshotXR = function (
     setTimeout(function () {
       I();
     }, 15);
+
+    // ===== SISTEMA DE SINCRONIZACIÓN =====
+    console.log("🚀 Sistema de sincronización inicializado para:", X);
+    var self = this;
+    var containerId = X; // X es el ID del contenedor (primer parámetro)
+    var syncEnabled = false;
+    var lastSyncedIndex = { c: -1, I: -1 };
+    var isSyncing = false;
+
+    // Inicializar almacenamiento global
+    window._keyShotXRInstances = window._keyShotXRInstances || {};
+    window._keyShotXRInstances[containerId] = self;
+
+    // Método para actualizar índices desde sincronización externa
+    this.setIndices = function (uIndex, vIndex) {
+      if (isSyncing) return;
+      self.c = uIndex;
+      self.I = vIndex;
+      self.J = p; // Forzar actualización
+      self.Ca && self.Ca();
+    };
+
+    // Monitorear cambios en índices y enviar eventos
+    setInterval(function () {
+      if (!syncEnabled || self.c === undefined) return;
+
+      var currentC = self.c || 0;
+      var currentI = self.I || 0;
+
+      if (currentC !== lastSyncedIndex.c || currentI !== lastSyncedIndex.I) {
+        lastSyncedIndex.c = currentC;
+        lastSyncedIndex.I = currentI;
+
+        console.log(
+          "📤 Enviando índices desde",
+          containerId,
+          "u:",
+          currentC,
+          "v:",
+          currentI
+        );
+
+        window.parent.postMessage(
+          {
+            type: "keyshot-index-changed",
+            containerId: containerId,
+            uIndex: currentC,
+            vIndex: currentI,
+          },
+          "*"
+        );
+      }
+    }, 50);
+
+    // Escuchar comandos de sincronización
+    window.addEventListener("message", function (event) {
+      if (event.data.type === "keyshot-sync-enable") {
+        syncEnabled = event.data.enabled;
+        console.log(
+          "🔄 Sincronización",
+          syncEnabled ? "HABILITADA" : "DESHABILITADA",
+          "en",
+          containerId
+        );
+      }
+
+      if (event.data.type === "keyshot-sync-indices") {
+        console.log(
+          "📨 Recibido sync-indices en",
+          containerId,
+          "u:",
+          event.data.uIndex,
+          "v:",
+          event.data.vIndex
+        );
+
+        if (
+          syncEnabled &&
+          !isSyncing &&
+          event.data.containerId !== containerId
+        ) {
+          console.log("  ✅ Aplicando sincronización...");
+          isSyncing = true;
+          self.setIndices(event.data.uIndex, event.data.vIndex);
+          setTimeout(function () {
+            isSyncing = false;
+          }, 100);
+        }
+      }
+    });
   } else alert("Your browser must support HTML5 to show KeyShotXR");
 };
+
+// ===== SISTEMA DE SINCRONIZACIÓN AÑADIDO =====
+(function () {
+  // Guardar la instancia actual de KeyShotXR para acceso externo
+  window._keyShotXRInstances = window._keyShotXRInstances || {};
+
+  // Wrapper para agregar sincronización
+  var originalKeyShotXR = window.keyshotXR;
+  window.keyshotXR = function () {
+    var instance = originalKeyShotXR.apply(this, arguments);
+    var containerId = arguments[0]; // Primer parámetro es el ID del contenedor
+
+    // Guardar referencia global
+    window._keyShotXRInstances[containerId] = this;
+
+    // Estado de sincronización
+    var syncEnabled = false;
+    var lastSyncedIndex = { c: -1, I: -1 };
+    var isSyncing = false;
+
+    // Método para habilitar/deshabilitar sincronización
+    this.setSyncEnabled = function (enabled) {
+      syncEnabled = enabled;
+    };
+
+    // Método para obtener índices actuales
+    this.getCurrentIndices = function () {
+      return {
+        uIndex: this.c || 0,
+        vIndex: this.I || 0,
+      };
+    };
+
+    // Método para establecer índices (desde sincronización externa)
+    this.setIndices = function (uIndex, vIndex) {
+      if (isSyncing) return; // Evitar loops
+      this.c = uIndex;
+      this.I = vIndex;
+      this.J = true; // Forzar actualización
+      this.Ca && this.Ca(); // Actualizar vista
+    };
+
+    // Monitorear cambios en índices y enviar eventos
+    console.log("👁️ Iniciando monitoreo de índices para:", containerId);
+    var self = this;
+    var monitorInterval = setInterval(function () {
+      if (!syncEnabled || self.c === undefined) return;
+
+      var currentC = self.c || 0;
+      var currentI = self.I || 0;
+
+      // Si los índices cambiaron, notificar
+      if (currentC !== lastSyncedIndex.c || currentI !== lastSyncedIndex.I) {
+        lastSyncedIndex.c = currentC;
+        lastSyncedIndex.I = currentI;
+
+        console.log(
+          "📤 Enviando índices desde",
+          containerId,
+          "u:",
+          currentC,
+          "v:",
+          currentI
+        );
+
+        // Enviar mensaje al padre (React)
+        window.parent.postMessage(
+          {
+            type: "keyshot-index-changed",
+            containerId: containerId,
+            uIndex: currentC,
+            vIndex: currentI,
+          },
+          "*"
+        );
+      }
+    }, 50); // Monitorear cada 50ms
+
+    // Escuchar comandos de sincronización desde React
+    window.addEventListener("message", function (event) {
+      if (event.data.type === "keyshot-sync-enable") {
+        syncEnabled = event.data.enabled;
+        console.log(
+          "🔄 Sincronización",
+          syncEnabled ? "HABILITADA" : "DESHABILITADA",
+          "en",
+          containerId
+        );
+      }
+
+      if (event.data.type === "keyshot-sync-indices") {
+        console.log(
+          "📨 Recibido sync-indices en",
+          containerId,
+          "- source:",
+          event.data.containerId,
+          "u:",
+          event.data.uIndex,
+          "v:",
+          event.data.vIndex
+        );
+
+        // Recibir índices de otro iframe para sincronizar
+        // Solo sincronizar si el mensaje NO viene de nosotros mismos
+        if (
+          syncEnabled &&
+          !isSyncing &&
+          event.data.containerId !== containerId
+        ) {
+          console.log("  ✅ Aplicando sincronización...");
+          isSyncing = true;
+          self.setIndices(event.data.uIndex, event.data.vIndex);
+          setTimeout(function () {
+            isSyncing = false;
+          }, 100);
+        } else {
+          console.log(
+            "  ❌ Sincronización no aplicada - syncEnabled:",
+            syncEnabled,
+            "isSyncing:",
+            isSyncing,
+            "esMismo:",
+            event.data.containerId === containerId
+          );
+        }
+      }
+    });
+
+    return instance;
+  };
+})();
