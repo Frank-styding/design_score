@@ -20,6 +20,7 @@ export function useProjectViewer(projectId: string) {
   const [views, setViews] = useState<View[]>([]);
   const [currentViewIndex, setCurrentViewIndex] = useState(0);
   const [currentProducts, setCurrentProducts] = useState<Product[]>([]);
+  const [nextProducts, setNextProducts] = useState<Product[]>([]); // Precarga
   const [showFinalMessage, setShowFinalMessage] = useState(false);
 
   /**
@@ -71,9 +72,54 @@ export function useProjectViewer(projectId: string) {
 
       const products = await getProductsByViewIdAction(currentView.view_id);
       setCurrentProducts(products);
+
+      // Precargar imágenes de los productos actuales
+      preloadProductImages(products);
     } catch (err: any) {
       console.error("Error cargando productos de la vista:", err);
     }
+  };
+
+  /**
+   * Precarga los productos de la siguiente vista
+   */
+  const preloadNextViewProducts = async () => {
+    try {
+      const nextIndex = currentViewIndex + 1;
+      if (nextIndex >= views.length) return;
+
+      const nextView = views[nextIndex];
+      if (!nextView || !nextView.view_id) return;
+
+      const products = await getProductsByViewIdAction(nextView.view_id);
+      setNextProducts(products);
+
+      // Precargar imágenes de los productos siguientes
+      preloadProductImages(products);
+    } catch (err: any) {
+      console.error("Error precargando productos de la siguiente vista:", err);
+    }
+  };
+
+  /**
+   * Precarga las imágenes de los productos en segundo plano
+   */
+  const preloadProductImages = (products: Product[]) => {
+    products.forEach((product) => {
+      if (product.path && product.constants) {
+        const config = product.constants as any;
+        const uCount = config.uCount || 36;
+        const vCount = config.vCount || 5;
+        const ext = config.imageExtension || "png";
+
+        // Precargar solo las primeras imágenes (primera fila)
+        for (let u = 0; u < Math.min(uCount, 12); u++) {
+          const imagePath = `${product.path}${u}_0.${ext}`;
+          const img = new Image();
+          img.src = imagePath;
+        }
+      }
+    });
   };
 
   /**
@@ -118,6 +164,19 @@ export function useProjectViewer(projectId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentViewIndex, views]);
 
+  // Precargar siguiente vista cuando cambian los productos actuales
+  useEffect(() => {
+    if (currentProducts.length > 0 && currentViewIndex < views.length - 1) {
+      // Esperar un poco antes de precargar para no interferir con la vista actual
+      const timer = setTimeout(() => {
+        preloadNextViewProducts();
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProducts, currentViewIndex, views]);
+
   return {
     // Estado
     isLoading,
@@ -127,6 +186,7 @@ export function useProjectViewer(projectId: string) {
     currentViewIndex,
     currentView: views[currentViewIndex] || null,
     currentProducts,
+    nextProducts, // Para debug o uso futuro
     totalViews: views.length,
     showFinalMessage,
 

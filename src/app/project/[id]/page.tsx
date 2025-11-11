@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useProjectViewer } from "@/src/hooks/useProjectViewer";
-import KeyShotXRViewer from "@/src/components/KeyShotXRViewer";
+import OptimizedViewerPool from "@/src/components/OptimizedViewerPool";
 
 export default function ProjectViewerPage() {
   const params = useParams();
@@ -96,41 +96,20 @@ export default function ProjectViewerPage() {
 
       {/* Viewer Content */}
       <div className="flex-1 w-full overflow-hidden">
-        {/* Grid para COMPARATIVO, single para RUTA */}
-        <div
-          className={`grid h-full w-full ${
+        <OptimizedViewerPool
+          currentProducts={products}
+          nextProducts={viewer.nextProducts}
+          currentViewIndex={viewer.currentViewIndex}
+          gridCols={
             products.length === 1
-              ? "grid-cols-1"
+              ? 1
               : products.length === 2
-              ? "grid-cols-2"
+              ? 2
               : products.length === 3
-              ? "grid-cols-3"
-              : "grid-cols-2 lg:grid-cols-4"
-          }`}
-        >
-          {products.map((product) => (
-            <div
-              key={product.product_id}
-              className="relative w-full h-full overflow-hidden"
-            >
-              {/* Visor 360 */}
-              {product.path && product.constants ? (
-                <div className="absolute inset-0 w-full h-full">
-                  <KeyShotXRViewer
-                    baseUrl={product.path}
-                    config={product.constants as any}
-                    className="w-full h-full"
-                    style={{ width: "100%", height: "100%" }}
-                  />
-                </div>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                  Sin vista 360
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+              ? 3
+              : 4
+          }
+        />
       </div>
 
       {/* Footer con navegación */}
