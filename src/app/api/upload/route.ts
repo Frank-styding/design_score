@@ -7,6 +7,12 @@ import { SupabaseStorageRepository } from "@/src/infrastrucutre/supabse/Supabase
 import { SSEService } from "@/src/lib/sseService";
 import { ImageUploadService } from "@/src/lib/uploadService";
 import { FileValidationService } from "@/src/lib/fileValidationService";
+import {
+  checkRateLimit,
+  getClientIP,
+  getRateLimitKey,
+  UPLOAD_RATE_LIMIT,
+} from "@/src/lib/rateLimitService";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +23,32 @@ export const dynamic = "force-dynamic";
  * Sube un archivo ZIP/RAR con progreso en tiempo real usando Server-Sent Events
  */
 export async function POST(request: NextRequest) {
+  // Rate limiting - prevenir abuso
+  const clientIP = getClientIP(request.headers);
+  const rateLimitKey = getRateLimitKey(clientIP, "upload");
+  const rateLimit = checkRateLimit(rateLimitKey, UPLOAD_RATE_LIMIT);
+
+  if (!rateLimit.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: "Demasiadas solicitudes. Por favor, espera antes de reintentar.",
+        retryAfter: new Date(rateLimit.resetTime).toISOString(),
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": Math.ceil(
+            (rateLimit.resetTime - Date.now()) / 1000
+          ).toString(),
+          "X-RateLimit-Limit": UPLOAD_RATE_LIMIT.maxRequests.toString(),
+          "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+          "X-RateLimit-Reset": new Date(rateLimit.resetTime).toISOString(),
+        },
+      }
+    );
+  }
+
   // Validación de autenticación temprana
   const authCheck = await validateAuthentication();
   if (!authCheck.ok) {

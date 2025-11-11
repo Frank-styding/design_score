@@ -1,4 +1,3 @@
-/* eslint-disable react/forbid-dom-props */
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
@@ -20,180 +19,159 @@ export default function OptimizedViewerPool({
   gridCols,
 }: OptimizedViewerPoolProps) {
   const [isSynced, setIsSynced] = useState(false);
+  const [iframesReady, setIframesReady] = useState(0); // Contador para forzar re-render
   const hasMultipleProducts = currentProducts.length > 1;
   const iframesRef = useRef<Map<string, HTMLIFrameElement>>(new Map());
 
   // Resetear sincronización cuando cambia la vista
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     setIsSynced(false);
     iframesRef.current.clear();
+    setIframesReady(0);
   }, [currentViewIndex]);
-
-  // Notificar a todos los iframes cuando cambie el estado de sincronización
-  useEffect(() => {
-    iframesRef.current.forEach((iframe) => {
-      if (iframe.contentWindow) {
-        iframe.contentWindow.postMessage(
-          {
-            type: "keyshot-sync-enable",
-            enabled: isSynced,
-          },
-          "*"
-        );
-      }
-    });
-  }, [isSynced]);
 
   // Sincronización mediante monitoreo de índices de KeyShotXR
   useEffect(() => {
-    console.log(
-      "🔧 [SYNC] useEffect ejecutado - isSynced:",
-      isSynced,
-      "hasMultipleProducts:",
-      hasMultipleProducts
-    );
-    console.log(
-      "🔧 [SYNC] iframes registrados:",
-      Array.from(iframesRef.current.keys())
-    );
+    const hasIframes = iframesRef.current.size > 0;
 
-    if (!isSynced || !hasMultipleProducts) {
-      // Deshabilitar sincronización en todos los iframes
-      console.log("❌ [SYNC] Deshabilitando sincronización...");
+    const sendSyncState = (enabled: boolean) => {
+      const iframeCount = iframesRef.current.size;
+      if (iframeCount === 0) return;
+
       iframesRef.current.forEach((iframe, productId) => {
         if (iframe.contentWindow) {
-          console.log("  ➡️ Deshabilitando en:", productId);
           iframe.contentWindow.postMessage(
             {
               type: "keyshot-sync-enable",
-              enabled: false,
+              enabled: enabled,
             },
             "*"
           );
         }
       });
+    };
+
+    if (!isSynced || !hasMultipleProducts) {
+      if (hasIframes) {
+        sendSyncState(false);
+      }
       return;
     }
 
-    // Habilitar sincronización en todos los iframes
-    console.log(
-      "✅ [SYNC] Habilitando sincronización en",
-      iframesRef.current.size,
-      "iframes..."
-    );
-    iframesRef.current.forEach((iframe, productId) => {
-      if (iframe.contentWindow) {
-        console.log("  ➡️ Habilitando en:", productId);
+    if (!hasIframes) return;
 
-        // Enviar múltiples veces con delay para asegurar que KeyShotXR esté listo
-        const sendEnableMessage = () => {
+    sendSyncState(true);
+
+    const retryTimeout = setTimeout(() => {
+      sendSyncState(true);
+    }, 500);
+
+    const handlePointerEvent = (event: MessageEvent) => {
+      if (event.data.type === "keyshot-pointer-event") {
+        const {
+          containerId,
+          eventType,
+          relativeX,
+          relativeY,
+          buttons,
+          button,
+        } = event.data;
+
+        iframesRef.current.forEach((iframe, productId) => {
+          if (productId === containerId) return;
+
           if (iframe.contentWindow) {
-            console.log(
-              "    📤 Enviando mensaje keyshot-sync-enable a:",
-              productId
-            );
             iframe.contentWindow.postMessage(
               {
-                type: "keyshot-sync-enable",
-                enabled: true,
+                type: "keyshot-pointer-event",
+                eventType: eventType,
+                containerId: containerId,
+                relativeX: relativeX,
+                relativeY: relativeY,
+                buttons: buttons,
+                button: button,
               },
               "*"
             );
           }
-        };
+        });
 
-        // Enviar inmediatamente
-        sendEnableMessage();
-
-        // Reintentar después de 100ms, 500ms y 1000ms por si KeyShotXR aún no estaba listo
-        setTimeout(sendEnableMessage, 100);
-        setTimeout(sendEnableMessage, 500);
-        setTimeout(sendEnableMessage, 1000);
+        return;
       }
-    });
 
-    // Escuchar cambios de índices desde cualquier iframe
-    const handleIndexChanged = (event: MessageEvent) => {
-      // Log de TODOS los mensajes para debug
-      if (event.data.type && event.data.type.startsWith("keyshot")) {
-        console.log(
-          "📬 [MESSAGE] Mensaje recibido:",
-          event.data.type,
-          event.data
-        );
+      if (
+        event.data.type === "keyshot-mouse-down" ||
+        event.data.type === "keyshot-mouse-move" ||
+        event.data.type === "keyshot-mouse-up"
+      ) {
+        const { containerId, relativeX, relativeY } = event.data;
+
+        iframesRef.current.forEach((iframe, productId) => {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage(
+              {
+                type: event.data.type,
+                containerId: containerId,
+                relativeX: relativeX,
+                relativeY: relativeY,
+              },
+              "*"
+            );
+          }
+        });
+
+        return;
+      }
+
+      if (event.data.type === "keyshot-mouse-sync") {
+        const { containerId, relativeX, relativeY, isMouseDown } = event.data;
+
+        iframesRef.current.forEach((iframe, productId) => {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage(
+              {
+                type: "keyshot-mouse-sync",
+                containerId: containerId,
+                relativeX,
+                relativeY,
+                isMouseDown,
+              },
+              "*"
+            );
+          }
+        });
+
+        return;
       }
 
       if (event.data.type === "keyshot-index-changed") {
         const { containerId, uIndex, vIndex } = event.data;
 
-        console.log(
-          "📩 [SYNC] Índice cambiado en:",
-          containerId,
-          "u:",
-          uIndex,
-          "v:",
-          vIndex
-        );
-        console.log(
-          "📋 [SYNC] iframes disponibles para propagar:",
-          Array.from(iframesRef.current.keys())
-        );
-
-        // Propagar a todos los demás iframes
-        let propagatedCount = 0;
-        let skippedCount = 0;
         iframesRef.current.forEach((iframe, productId) => {
           if (iframe.contentWindow) {
-            console.log(
-              "  🔍 Evaluando:",
-              productId,
-              "- es el mismo que source?",
-              productId === containerId
-            );
-            console.log("    → Enviando sync-indices a:", productId);
             iframe.contentWindow.postMessage(
               {
                 type: "keyshot-sync-indices",
-                containerId: containerId, // Enviar el ID del source para que no se cree loop
+                containerId: containerId,
                 uIndex,
                 vIndex,
               },
               "*"
             );
-            propagatedCount++;
-          } else {
-            console.log("  ⚠️ iframe sin contentWindow:", productId);
-            skippedCount++;
           }
         });
-
-        console.log(
-          `✅ [SYNC] Propagado a ${propagatedCount} iframes (saltados: ${skippedCount})`
-        );
       }
     };
 
-    console.log("👂 [SYNC] Registrando listener de mensajes...");
-    window.addEventListener("message", handleIndexChanged);
-
-    // Debug: Listener adicional para ver TODOS los mensajes
-    const debugListener = (event: MessageEvent) => {
-      console.log("🔔 [DEBUG] Mensaje recibido:", {
-        type: event.data?.type,
-        origin: event.origin,
-        data: event.data,
-      });
-    };
-    window.addEventListener("message", debugListener);
+    window.addEventListener("message", handlePointerEvent);
 
     return () => {
-      console.log("🧹 [SYNC] Limpiando listener de mensajes...");
-      window.removeEventListener("message", handleIndexChanged);
-      window.removeEventListener("message", debugListener);
+      clearTimeout(retryTimeout);
+      window.removeEventListener("message", handlePointerEvent);
     };
-  }, [isSynced, hasMultipleProducts]);
+  }, [isSynced, hasMultipleProducts, iframesReady]);
 
-  // Renderizar viewers de forma memoizada
   const currentViewers = useMemo(() => {
     return currentProducts.map((product, index) => {
       return {
@@ -233,11 +211,40 @@ export default function OptimizedViewerPool({
           return (
             <div
               key={`container-${product.product_id}-${currentViewIndex}`}
-              className="relative w-full h-full flex items-center justify-center rounded-lg overflow-hidden"
+              className={`relative w-full h-full flex items-center justify-center rounded-lg overflow-hidden transition-all duration-300 ${
+                isSynced && hasMultipleProducts
+                  ? "ring-2 ring-blue-500 ring-offset-2 shadow-lg"
+                  : ""
+              }`}
             >
               {/* Visor 360 centrado y con tamaño contenido */}
               {product.path && product.constants ? (
                 <div className="w-full h-full flex items-center justify-center relative">
+                  {/* Indicador de sincronización/bloqueo */}
+                  {isSynced && hasMultipleProducts && (
+                    <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+                      {/* Pulso animado de fondo */}
+                      <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-75"></div>
+
+                      {/* Badge principal */}
+                      <div className="relative bg-blue-500 text-white px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 text-sm font-medium">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span>Sincronizado</span>
+                      </div>
+                    </div>
+                  )}
+
                   <div
                     className={`relative flex items-center justify-center w-full h-full ${
                       /*         hasMultipleProducts
@@ -254,25 +261,11 @@ export default function OptimizedViewerPool({
                       viewerId={product.product_id!}
                       onIframeReady={(iframe) => {
                         if (iframe) {
-                          console.log(
-                            "🎯 [IFRAME] Registrando iframe para producto:",
-                            product.product_id
-                          );
                           iframesRef.current.set(product.product_id!, iframe);
-                          console.log(
-                            "📝 [IFRAME] Total de iframes registrados:",
-                            iframesRef.current.size
-                          );
-                          console.log(
-                            "📋 [IFRAME] IDs registrados:",
-                            Array.from(iframesRef.current.keys())
-                          );
+                          setIframesReady((prev) => prev + 1);
                         } else {
-                          console.log(
-                            "🗑️ [IFRAME] Eliminando iframe para producto:",
-                            product.product_id
-                          );
                           iframesRef.current.delete(product.product_id!);
+                          setIframesReady((prev) => prev - 1);
                         }
                       }}
                     />

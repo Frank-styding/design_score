@@ -1,4 +1,3 @@
-/* eslint-disable react/forbid-dom-props */
 "use client";
 
 import { useParams } from "next/navigation";
@@ -51,9 +50,10 @@ export default function ProjectViewerPage() {
           {/* Barra de progreso */}
           <div className="mb-4">
             <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-css-tags */}
               <div
                 className="bg-black h-4 transition-all duration-300 ease-out"
-                style={{ width: `${preloader.progress.percentage}%` }}
+                style={{ width: `${preloader.progress.percentage}%` } as React.CSSProperties}
               />
             </div>
           </div>

@@ -5,8 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:prod": "npm run security-check && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "security-check": "node scripts/security-check.js",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

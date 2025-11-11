@@ -117,8 +117,6 @@ export default function ViewProduct({ adminId }: ViewProductProps) {
           <KeyShotXRViewer
             config={JSON.parse(selectedProduct.constants)}
             baseUrl={`https://emrgqbrqnqpbkrpruwts.supabase.co/storage/v1/object/public/files/${adminId}/${selectedProduct.id}/`}
-            onLoad={() => console.log("Visor 3D cargado")}
-            onError={(error) => console.error("Error en visor 3D:", error)}
           />
         </div>
       )}

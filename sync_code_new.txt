@@ -1,0 +1,72 @@
+              // SYNC: Variables de estado
+              var syncEnabled = false;
+              var lastSentU = -1;
+              var lastSentV = -1;
+              var isReceivingSync = false;
+              
+              // Sobrescribir el método de carga completa
+              var originalRaMethod = keyshotXR.Ra;
+              keyshotXR.Ra = function() {
+                originalRaMethod.call(keyshotXR);
+                
+                console.log("Sistema de sincronizacion configurado para:", "${cfg.nameOfDiv}");
+                
+                // Monitorear cambios en los índices y enviar si cambian
+                setInterval(function() {
+                  if (!syncEnabled || isReceivingSync) return;
+                  
+                  var currentU = keyshotXR.e.I;
+                  var currentV = keyshotXR.e.K;
+                  
+                  if (currentU !== lastSentU || currentV !== lastSentV) {
+                    lastSentU = currentU;
+                    lastSentV = currentV;
+                    
+                    console.log("Indices en ${cfg.nameOfDiv} - U:", currentU, "V:", currentV);
+                    
+                    window.parent.postMessage({
+                      type: "keyshot-indices-sync",
+                      containerId: "${cfg.nameOfDiv}",
+                      uIndex: currentU,
+                      vIndex: currentV
+                    }, "*");
+                  }
+                }, 50);
+                
+                // Notificar que la carga está completa
+                window.parent.postMessage({
+                  type: 'keyshot-loaded',
+                  containerId: '${cfg.nameOfDiv}'
+                }, '*');
+              };
+
+              // Paralelismo y semilla de descargas (ajusta entre 6–12 según CDN)
+              keyshotXR.Aa = 8;
+              for (var i = 1; i < keyshotXR.Aa; i++) keyshotXR.ga();
+              
+              // SYNC: Listener de mensajes para sincronizar con otros visores
+              window.addEventListener("message", function(event) {
+                var data = event.data;
+                
+                // Habilitar/deshabilitar sincronización
+                if (data.type === "keyshot-sync-enable") {
+                  syncEnabled = data.enabled;
+                  console.log("Sincronizacion " + (syncEnabled ? "habilitada" : "deshabilitada") + " en: ${cfg.nameOfDiv}");
+                }
+                
+                // Recibir índices sincronizados de otro visor
+                if (data.type === "keyshot-indices-sync" && syncEnabled) {
+                  if (data.containerId === "${cfg.nameOfDiv}") return;
+                  
+                  console.log("Aplicando indices en ${cfg.nameOfDiv} - U:", data.uIndex, "V:", data.vIndex);
+                  
+                  isReceivingSync = true;
+                  
+                  // Aplicar los índices directamente usando el método o()
+                  if (typeof keyshotXR.o === 'function') {
+                    keyshotXR.o(data.uIndex, data.vIndex);
+                  }
+                  
+                  setTimeout(function() { isReceivingSync = false; }, 100);
+                }
+              });

@@ -1,3 +1,4 @@
+/* eslint-disable react/forbid-dom-props */
 "use client";
 import { useEffect, useMemo, useRef, memo } from "react";
 
@@ -302,6 +303,10 @@ function KeyShotXRViewer({
           <script src="/js/KeyShotXR.js" defer></script>
           <script defer>
             function initKeyShotXR() {
+              console.log("🎬 [IFRAME] Inicializando KeyShotXR para:", "${
+                cfg.nameOfDiv
+              }");
+              
               var keyshotXR = new window.keyshotXR(
                 "${cfg.nameOfDiv}",
                 "${base}",
@@ -349,47 +354,46 @@ function KeyShotXRViewer({
 
               // 🔄 SINCRONIZACIÓN: Variables de estado
               var syncEnabled = false;
+              var lastSentX = -1;
+              var lastSentY = -1;
               var isReceivingSync = false;
+              var isDragging = false; // Flag para evitar loops infinitos
               
               // Sobrescribir el método de carga completa
               var originalRaMethod = keyshotXR.Ra;
               keyshotXR.Ra = function() {
                 originalRaMethod.call(keyshotXR);
                 
-                // Obtener el contenedor de KeyShot
+                // 🔄 SINCRONIZACIÓN: Interceptar eventos de mouse para capturar posición
                 var container = document.getElementById("${cfg.nameOfDiv}");
                 if (container) {
-                  // Función para enviar eventos de mouse
-                  function sendMouseEvent(eventType, e) {
+                  // Escuchar eventos de mousemove en el contenedor
+                  container.addEventListener("mousemove", function(e) {
                     if (!syncEnabled || isReceivingSync) return;
                     
+                    // Obtener dimensiones del contenedor
                     var rect = container.getBoundingClientRect();
-                    var relativeX = (e.clientX - rect.left) / rect.width;
-                    var relativeY = (e.clientY - rect.top) / rect.height;
+                    var relativeX = (e.clientX - rect.left) / rect.width;  // 0 a 1
+                    var relativeY = (e.clientY - rect.top) / rect.height;  // 0 a 1
                     
-                    window.parent.postMessage({
-                      type: "keyshot-pointer-event",
-                      eventType: eventType,
-                      containerId: "${cfg.nameOfDiv}",
-                      relativeX: relativeX,
-                      relativeY: relativeY,
-                      buttons: e.buttons,
-                      button: e.button
-                    }, "*");
-                  }
-                  
-                  // Capturar eventos de mouse
-                  container.addEventListener("mousedown", function(e) {
-                    sendMouseEvent("mousedown", e);
+                    // Solo enviar si cambió significativamente (más de 0.5%)
+                    if (Math.abs(relativeX - lastSentX) > 0.005 || Math.abs(relativeY - lastSentY) > 0.005) {
+                      lastSentX = relativeX;
+                      lastSentY = relativeY;
+                      
+                      console.log("�️ [IFRAME] Enviando posición de mouse desde ${cfg.nameOfDiv} - x:", relativeX.toFixed(3), "y:", relativeY.toFixed(3));
+                      
+                      window.parent.postMessage({
+                        type: "keyshot-mouse-sync",
+                        containerId: "${cfg.nameOfDiv}",
+                        relativeX: relativeX,
+                        relativeY: relativeY,
+                        isMouseDown: e.buttons === 1
+                      }, "*");
+                    }
                   });
                   
-                  container.addEventListener("mousemove", function(e) {
-                    sendMouseEvent("mousemove", e);
-                  });
-                  
-                  container.addEventListener("mouseup", function(e) {
-                    sendMouseEvent("mouseup", e);
-                  });
+                  console.log("🔄 [IFRAME] Sistema de sincronización por mouse configurado para:", "${cfg.nameOfDiv}");
                 }
                 
                 // Notificar que la carga está completa
@@ -410,84 +414,58 @@ function KeyShotXRViewer({
                 // Habilitar/deshabilitar sincronización
                 if (data.type === "keyshot-sync-enable") {
                   syncEnabled = data.enabled;
+                  console.log("🔄 [IFRAME] Sincronización " + (syncEnabled ? "habilitada" : "deshabilitada") + " en: ${cfg.nameOfDiv}");
                 }
                 
-                // Recibir eventos de mouse sincronizados de otro visor
-                if (data.type === "keyshot-pointer-event" && syncEnabled) {
+                // Recibir posición de mouse sincronizada de otro visor
+                if (data.type === "keyshot-mouse-sync" && syncEnabled) {
                   // No sincronizar si el mensaje viene de este mismo contenedor
                   if (data.containerId === "${cfg.nameOfDiv}") {
                     return;
                   }
                   
-                  var eventType = data.eventType;
                   var relativeX = data.relativeX;
                   var relativeY = data.relativeY;
-                  var buttons = data.buttons;
-                  var button = data.button;
+                  var isMouseDown = data.isMouseDown;
+                  
+                  console.log("�️ [IFRAME] Recibiendo posición de mouse en ${cfg.nameOfDiv}:", "x:", relativeX.toFixed(3), "y:", relativeY.toFixed(3));
                   
                   // Marcar que estamos recibiendo sincronización para evitar loop
                   isReceivingSync = true;
                   
-                  // Obtener el contenedor principal (viewwindow)
+                  // Obtener el contenedor y calcular posición absoluta
                   var container = document.getElementById("${cfg.nameOfDiv}");
                   if (container) {
-                    // Encontrar el viewwindow div (primer hijo del contenedor)
-                    var viewwindow = container.querySelector('#viewwindow');
-                    if (!viewwindow) return;
-                    
-                    // El overlay es el segundo div hijo de viewwindow (después de turntable)
-                    var turntable = viewwindow.querySelector('#turntable');
-                    var overlayDiv = turntable ? turntable.nextElementSibling : null;
-                    
-                    if (!overlayDiv) return;
-                    
-                    var rect = overlayDiv.getBoundingClientRect();
+                    var rect = container.getBoundingClientRect();
                     var absoluteX = rect.left + (relativeX * rect.width);
                     var absoluteY = rect.top + (relativeY * rect.height);
                     
-                    // IMPORTANTE: pageX/pageY incluyen el scroll, clientX/Y no
-                    var pageX = absoluteX + window.pageXOffset;
-                    var pageY = absoluteY + window.pageYOffset;
-                    
-                    // Crear evento sintético de mouse con todas las propiedades necesarias
-                    var mouseEvent = new MouseEvent(eventType, {
+                    // Simular evento de mousemove
+                    var mouseMoveEvent = new MouseEvent('mousemove', {
                       bubbles: true,
                       cancelable: true,
                       view: window,
                       clientX: absoluteX,
                       clientY: absoluteY,
-                      screenX: absoluteX,
-                      screenY: absoluteY,
-                      buttons: buttons,
-                      button: button
+                      pageX: absoluteX + window.pageXOffset,
+                      pageY: absoluteY + window.pageYOffset,
+                      buttons: isMouseDown ? 1 : 0
                     });
                     
-                    // CRÍTICO: KeyShotXR usa pageX/pageY, no clientX/clientY
-                    // Como MouseEvent no permite configurar pageX/pageY en el constructor,
-                    // los agregamos manualmente
-                    Object.defineProperty(mouseEvent, 'pageX', {
-                      value: pageX,
-                      writable: false
-                    });
-                    Object.defineProperty(mouseEvent, 'pageY', {
-                      value: pageY,
-                      writable: false
-                    });
-                    
-                    // CRÍTICO: KeyShotXR escucha mousedown/mousemove en el overlay div
-                    // pero mouseup en document. Debemos disparar en el target correcto.
-                    var targetElement = eventType === "mouseup" ? document : overlayDiv;
-                    
-                    // Disparar el evento en el elemento correcto
-                    targetElement.dispatchEvent(mouseEvent);
+                    container.dispatchEvent(mouseMoveEvent);
+                    console.log("✅ [IFRAME] Evento mousemove simulado en ${cfg.nameOfDiv}");
                   }
                   
                   // Liberar el flag después de un breve delay
                   setTimeout(function() {
                     isReceivingSync = false;
-                  }, 16); // ~1 frame a 60fps
+                  }, 50);
                 }
               });
+              
+              console.log("✅ [IFRAME] KeyShotXR inicializado completamente para:", "${
+                cfg.nameOfDiv
+              }");
             }
 
             document.addEventListener("DOMContentLoaded", function(){
@@ -562,7 +540,7 @@ function KeyShotXRViewer({
         alignItems: "center",
         justifyContent: "center",
         ...style,
-      } as React.CSSProperties}
+      }}
     >
       <iframe
         ref={iframeRef}
@@ -573,7 +551,7 @@ function KeyShotXRViewer({
           height: "100%",
           border: "none",
           backgroundColor: mergedConfig.backgroundColor,
-        } as React.CSSProperties}
+        }}
         allow="fullscreen"
       />
     </div>
