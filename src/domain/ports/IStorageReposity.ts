@@ -16,6 +16,20 @@ export interface IStorageRepository {
     data: { fullPath: string; path: string } | null;
     error: string | null;
   }>;
+  uploadBuffersBatch(
+    uploads: Array<{
+      filePath: string;
+      buffer: Buffer;
+      contentType?: string;
+    }>
+  ): Promise<
+    Array<{
+      filePath: string;
+      ok: boolean;
+      data: { fullPath: string; path: string } | null;
+      error: string | null;
+    }>
+  >;
   deleteFile(filePath: string): Promise<{
     ok: boolean;
     error: string | null;

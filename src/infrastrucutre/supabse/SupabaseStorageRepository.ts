@@ -47,33 +47,67 @@ export class SupabaseStorageRepository implements IStorageRepository {
   async deleteFolder(
     folderPath: string
   ): Promise<{ ok: boolean; error: string | null }> {
-    // Listar todos los archivos en la carpeta
-    const { data: files, error: listError } = await this.supabaseClient.storage
-      .from("files")
-      .list(folderPath);
+    try {
+      // Listar todos los archivos en la carpeta (recursivamente)
+      const { data: files, error: listError } =
+        await this.supabaseClient.storage.from("files").list(folderPath, {
+          limit: 1000, // Aumentar el límite para manejar muchos archivos
+          offset: 0,
+          sortBy: { column: "name", order: "asc" },
+        });
 
-    if (listError) {
-      return { ok: false, error: listError.message };
-    }
+      if (listError) {
+        console.error(`❌ Error listando carpeta ${folderPath}:`, listError);
+        return { ok: false, error: listError.message };
+      }
 
-    // Si no hay archivos, no hay nada que eliminar
-    if (!files || files.length === 0) {
+      // Si no hay archivos, retornar éxito
+      if (!files || files.length === 0) {
+        return { ok: true, error: null };
+      }
+
+      // Separar archivos y carpetas
+      const filesToDelete: string[] = [];
+      const foldersToDelete: string[] = [];
+
+      for (const file of files) {
+        const fullPath = `${folderPath}/${file.name}`;
+
+        // Si el item tiene metadata de carpeta o no tiene extension, tratarlo como carpeta
+        if (file.id === null || !file.name.includes(".")) {
+          foldersToDelete.push(fullPath);
+        } else {
+          filesToDelete.push(fullPath);
+        }
+      }
+
+      // Eliminar subcarpetas recursivamente
+      if (foldersToDelete.length > 0) {
+        for (const folder of foldersToDelete) {
+          await this.deleteFolder(folder); // Llamada recursiva
+        }
+      }
+
+      // Eliminar archivos del nivel actual
+      if (filesToDelete.length > 0) {
+        const { error: deleteError } = await this.supabaseClient.storage
+          .from("files")
+          .remove(filesToDelete);
+
+        if (deleteError) {
+          console.error(
+            `❌ Error eliminando archivos de ${folderPath}:`,
+            deleteError
+          );
+          return { ok: false, error: deleteError.message };
+        }
+      }
+
       return { ok: true, error: null };
+    } catch (err: any) {
+      console.error(`❌ Error eliminando carpeta ${folderPath}:`, err);
+      return { ok: false, error: err.message };
     }
-
-    // Construir las rutas completas de los archivos
-    const filePaths = files.map((file) => `${folderPath}/${file.name}`);
-
-    // Eliminar todos los archivos
-    const { error: deleteError } = await this.supabaseClient.storage
-      .from("files")
-      .remove(filePaths);
-
-    if (deleteError) {
-      return { ok: false, error: deleteError.message };
-    }
-
-    return { ok: true, error: null };
   }
 
   async getFileUrl(filePath: string): Promise<{ url: string | null }> {
@@ -113,16 +147,109 @@ export class SupabaseStorageRepository implements IStorageRepository {
     data: { fullPath: string; path: string } | null;
     error: string | null;
   }> {
-    const { data, error } = await this.supabaseClient.storage
-      .from("files")
-      .upload(filePath, buffer, {
-        contentType: contentType,
-        upsert: true, // ✅ Sobrescribir si ya existe
-      });
-    if (error) {
-      return { ok: false, error: error.message, data: null };
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // 1 segundo entre reintentos
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const { data, error } = await this.supabaseClient.storage
+          .from("files")
+          .upload(filePath, buffer, {
+            contentType: contentType,
+            upsert: true, // ✅ Sobrescribir si ya existe
+          });
+
+        if (error) {
+          console.error(
+            `❌ Error en uploadBuffer para ${filePath} (intento ${attempt}/${MAX_RETRIES}):`,
+            error
+          );
+
+          // Si es el último intento, devolver el error
+          if (attempt === MAX_RETRIES) {
+            return {
+              ok: false,
+              error: error.message || String(error),
+              data: null,
+            };
+          }
+
+          // Esperar antes de reintentar
+          await new Promise((resolve) =>
+            setTimeout(resolve, RETRY_DELAY * attempt)
+          );
+          continue; // Reintentar
+        }
+
+        // ✅ Subida exitosa
+        if (attempt > 1) {
+          console.log(
+            `✅ Subida exitosa en intento ${attempt} para ${filePath}`
+          );
+        }
+        return { ok: true, error: null, data };
+      } catch (err: any) {
+        console.error(
+          `❌ Excepción en uploadBuffer para ${filePath} (intento ${attempt}/${MAX_RETRIES}):`,
+          err
+        );
+
+        // Si es el último intento, devolver el error
+        if (attempt === MAX_RETRIES) {
+          return {
+            ok: false,
+            error: `Falló después de ${MAX_RETRIES} intentos: ${
+              err.message || String(err)
+            }`,
+            data: null,
+          };
+        }
+
+        // Esperar antes de reintentar
+        await new Promise((resolve) =>
+          setTimeout(resolve, RETRY_DELAY * attempt)
+        );
+      }
     }
 
-    return { ok: true, error: null, data };
+    // Esto nunca debería ejecutarse, pero TypeScript lo requiere
+    return {
+      ok: false,
+      error: "Error desconocido en uploadBuffer",
+      data: null,
+    };
+  }
+
+  /**
+   * Sube múltiples buffers en paralelo para mejorar el rendimiento
+   * @param uploads Array de objetos con filePath, buffer y contentType
+   * @returns Array de resultados de las subidas
+   */
+  async uploadBuffersBatch(
+    uploads: Array<{
+      filePath: string;
+      buffer: Buffer;
+      contentType?: string;
+    }>
+  ): Promise<
+    Array<{
+      filePath: string;
+      ok: boolean;
+      data: { fullPath: string; path: string } | null;
+      error: string | null;
+    }>
+  > {
+    const uploadPromises = uploads.map(
+      async ({ filePath, buffer, contentType }) => {
+        const result = await this.uploadBuffer(
+          filePath,
+          buffer,
+          contentType || "image/png"
+        );
+        return { filePath, ...result };
+      }
+    );
+
+    return Promise.all(uploadPromises);
   }
 }

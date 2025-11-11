@@ -130,7 +130,7 @@ export async function updateProjectAction(
 
 /**
  * Elimina un proyecto y todos sus recursos relacionados
- * (productos, views, view_products se eliminan en cascada por la BD)
+ * (productos, imágenes en storage, views, view_products)
  */
 export async function deleteProjectAction(
   projectId: string
@@ -138,14 +138,32 @@ export async function deleteProjectAction(
   try {
     const client = await createClient();
     const authRepository = new SupabaseAuthRepository(client);
-    const projectRepository = new SupabaseProjectRepository(client);
-    const projectUseCase = new ProjectUseCase(projectRepository);
     const authUseCase = new AuthUseCase(authRepository);
 
     const admin = await authUseCase.getCurrentUser();
     if (!admin) {
       return { ok: false, error: "No authenticated user" };
     }
+
+    // Importar repositorios necesarios para eliminación en cascada
+    const { SupabaseStorageRepository } = await import(
+      "@/src/infrastrucutre/supabse/SupabaseStorageRepository"
+    );
+    const { SupabaseProductRepository } = await import(
+      "@/src/infrastrucutre/supabse/SupabaseProductRepositry"
+    );
+
+    const storageRepository = new SupabaseStorageRepository(client);
+    const productRepository = new SupabaseProductRepository(
+      client,
+      storageRepository
+    );
+    const projectRepository = new SupabaseProjectRepository(
+      client,
+      storageRepository,
+      productRepository
+    );
+    const projectUseCase = new ProjectUseCase(projectRepository);
 
     return await projectUseCase.deleteProject(projectId);
   } catch (error) {

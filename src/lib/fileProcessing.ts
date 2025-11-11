@@ -3,7 +3,7 @@ import imageCompression from "browser-image-compression";
 /**
  * Extrae constantes JavaScript del archivo HTML de KeyShot
  */
-export function extractConstantsFromHTML(
+/* export function extractConstantsFromHTML(
   htmlText: string
 ): Record<string, any> {
   const regex = /var\s+(\w+)\s*=\s*([^;]+);/g;
@@ -28,12 +28,12 @@ export function extractConstantsFromHTML(
   }
 
   return constants;
-}
+} */
 
 /**
  * Comprime una imagen PNG a WebP manteniendo el nombre original
  */
-export async function compressImage(file: File): Promise<File> {
+/* export async function compressImage(file: File): Promise<File> {
   try {
     const options = {
       maxSizeMB: 1, // Máximo 1MB por imagen
@@ -52,24 +52,24 @@ export async function compressImage(file: File): Promise<File> {
       lastModified: compressedFile.lastModified,
     });
 
-    /*     console.log(
+        console.log(
       `✅ Comprimido: ${originalName} (${(file.size / 1024).toFixed(1)}KB → ${(
         renamedFile.size / 1024
       ).toFixed(1)}KB)`
-    ); */
+    );
 
     return renamedFile;
   } catch (error) {
     console.warn(`⚠️ No se pudo comprimir ${file.name}, usando original`);
     return file; // Fallback al archivo original
   }
-}
+} */
 
 /**
  * Procesa archivos de una carpeta KeyShot (HTML + imágenes PNG)
  * Comprime las imágenes y extrae constantes del HTML
  */
-export async function processFiles(selectedFiles: FileList): Promise<{
+/* export async function processFiles(selectedFiles: FileList): Promise<{
   parsedConstants: string;
   images: File[];
 }> {
@@ -89,10 +89,7 @@ export async function processFiles(selectedFiles: FileList): Promise<{
 
   if (!mainHtmlFile) throw new Error("No se encontró archivo HTML principal");
 
-  // Comprimir todas las imágenes en paralelo
-  /*   console.log(`🔄 Comprimiendo ${imageFiles.length} imágenes...`); */
   const images = await Promise.all(imageFiles.map(compressImage));
-  /*   console.log("✅ Todas las imágenes comprimidas"); */
 
   const fileReader = new FileReader();
 
@@ -111,4 +108,4 @@ export async function processFiles(selectedFiles: FileList): Promise<{
   });
 
   return { parsedConstants, images };
-}
+} */

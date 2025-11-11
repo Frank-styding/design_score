@@ -11,7 +11,7 @@ export default function LoginPage() {
     email: string;
   }) => {
     // Redirigir directamente a /upload
-    router.push("/upload");
+    router.push("/dashboard");
   };
 
   return (

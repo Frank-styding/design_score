@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     if (!file) {
       return NextResponse.json(
-        { error: "No se proporcionó archivo ZIP" },
+        { error: "No se proporcionó archivo" },
         { status: 400 }
       );
     }
@@ -68,23 +68,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validar que sea un archivo ZIP
-    if (!file.name.endsWith(".zip")) {
+    // Validar que sea SOLO un archivo ZIP
+    const isZip = file.name.toLowerCase().endsWith(".zip");
+
+    if (!isZip) {
       return NextResponse.json(
-        { error: "El archivo debe ser .zip" },
+        {
+          error:
+            "Solo se permiten archivos .zip. Por favor, convierte tu archivo a formato ZIP.",
+        },
         { status: 400 }
       );
     }
-
-    /* console.log(`📦 Procesando archivo ZIP: ${file.name}`); */
 
     // Convertir File a Buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Validar que el archivo ZIP sea válido
+    try {
+      const AdmZip = require("adm-zip");
+      const testZip = new AdmZip(buffer);
+      testZip.getEntries(); // Esto lanzará error si no es un ZIP válido
+    } catch (zipError: any) {
+      console.error("❌ Archivo ZIP inválido:", zipError.message);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Archivo ZIP corrupto o inválido: ${zipError.message}. Asegúrate de que el archivo sea un ZIP válido.`,
+        },
+        { status: 400 }
+      );
+    }
+
     // 1. Procesar archivo ZIP (extraer y procesar)
-    /* console.log("🔄 Extrayendo archivos del ZIP..."); */
-    const { constants, imageFiles } = await processZipFile(buffer);
+    /* console.log("🔄 Extrayendo archivos del archivo..."); */
+    const { constants, imageFiles } = await processZipFile(buffer, false);
 
     /*   console.log(`✅ Extraídas ${imageFiles.size} imágenes`);
     console.log(

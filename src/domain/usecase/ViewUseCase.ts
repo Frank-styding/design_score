@@ -157,19 +157,35 @@ export class ViewUseCase {
       };
     }
 
-    if (!productIds || productIds.length === 0) {
-      return {
-        ok: false,
-        error: "Debe proporcionar al menos un product_id",
-      };
-    }
-
     // Verificar que la view existe
     const existingView = await this.viewRepository.findById(viewId);
     if (!existingView) {
       return {
         ok: false,
         error: "View no encontrada",
+      };
+    }
+
+    // Si productIds está vacío, eliminar todos los productos de la vista
+    if (!productIds || productIds.length === 0) {
+      // Obtener todos los productos actuales de la vista
+      const currentProducts = await this.viewRepository.getProductsByViewId(
+        viewId
+      );
+
+      if (currentProducts.length > 0) {
+        // Eliminar todos los productos de la vista
+        const currentProductIds = currentProducts.map((p) => p.product_id!);
+        return await this.viewRepository.removeProductsFromView(
+          viewId,
+          currentProductIds
+        );
+      }
+
+      // Si no hay productos, retornar éxito
+      return {
+        ok: true,
+        error: null,
       };
     }
 

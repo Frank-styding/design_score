@@ -102,15 +102,6 @@ export default function AuthForm({ onAuthSuccess }: AuthFormProps) {
             <Button type="submit" variant="primary" isLoading={isSubmitting}>
               {mode === "signin" ? "Ingresar" : "Registrarse"}
             </Button>
-
-            {/* Link para cambiar de modo */}
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            >
-              {mode === "signin" ? "¿Olvidaste?" : "← Volver"}
-            </Button>
           </div>
         </div>
       </form>

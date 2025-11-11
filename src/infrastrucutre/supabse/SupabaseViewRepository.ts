@@ -132,18 +132,34 @@ export class SupabaseViewRepository implements IViewRepository {
     productIds: string[]
   ): Promise<{ ok: boolean; error: string | null }> {
     try {
-      // Insertar relaciones en view_products
-      const insertData = productIds.map((productId) => ({
-        view_id: viewId,
-        product_id: productId,
-      }));
-
-      const { error } = await this.supabaseClient
+      // Paso 1: Eliminar todas las asociaciones existentes
+      const { error: deleteError } = await this.supabaseClient
         .from("view_products")
-        .upsert(insertData, { onConflict: "product_id,view_id" });
+        .delete()
+        .eq("view_id", viewId);
 
-      if (error) {
-        throw new Error(`Error assigning products to view: ${error.message}`);
+      if (deleteError) {
+        throw new Error(
+          `Error removing existing products: ${deleteError.message}`
+        );
+      }
+
+      // Paso 2: Insertar las nuevas relaciones
+      if (productIds.length > 0) {
+        const insertData = productIds.map((productId) => ({
+          view_id: viewId,
+          product_id: productId,
+        }));
+
+        const { error: insertError } = await this.supabaseClient
+          .from("view_products")
+          .insert(insertData);
+
+        if (insertError) {
+          throw new Error(
+            `Error assigning products to view: ${insertError.message}`
+          );
+        }
       }
 
       return { ok: true, error: null };

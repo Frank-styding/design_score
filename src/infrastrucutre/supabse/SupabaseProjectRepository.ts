@@ -2,9 +2,15 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { Project } from "@/src/domain/entities/Project";
 import { Product } from "@/src/domain/entities/Product";
 import { IProjectRepository } from "@/src/domain/ports/IProjectRepository";
+import { IStorageRepository } from "@/src/domain/ports/IStorageReposity";
+import { IProductRepository } from "@/src/domain/ports/IProductRepository";
 
 export class SupabaseProjectRepository implements IProjectRepository {
-  constructor(private supabaseClient: SupabaseClient) {}
+  constructor(
+    private supabaseClient: SupabaseClient,
+    private storageRepository?: IStorageRepository,
+    private productRepository?: IProductRepository
+  ) {}
 
   async createProject(project: Project): Promise<{
     project: Project | null;
@@ -117,10 +123,54 @@ export class SupabaseProjectRepository implements IProjectRepository {
     error: string | null;
   }> {
     try {
-      // CASCADE eliminará automáticamente:
-      // - products relacionados (y sus imágenes en Storage deberían limpiarse primero)
-      // - views relacionados
-      // - view_products relacionados
+      // 1. Obtener todos los productos del proyecto para eliminar sus imágenes
+      if (this.productRepository && this.storageRepository) {
+        const { data: productsData, error: productsError } =
+          await this.supabaseClient
+            .from("products")
+            .select("product_id, admin_id, path")
+            .eq("project_id", projectId);
+
+        if (productsError) {
+          console.error(
+            "❌ Error al obtener productos:",
+            productsError.message
+          );
+        }
+
+        // 2. Eliminar las carpetas de imágenes de cada producto
+        if (productsData && productsData.length > 0) {
+          for (const product of productsData) {
+            if (product.path) {
+              // Eliminar la carpeta completa del producto
+              const { ok, error } = await this.storageRepository.deleteFolder(
+                product.path
+              );
+
+              if (!ok) {
+                console.error(
+                  `❌ Error eliminando carpeta ${product.path}:`,
+                  error
+                );
+              }
+            }
+
+            // También intentar eliminar carpeta por admin_id/product_id si existe
+            const fallbackPath = `${product.admin_id}/${product.product_id}`;
+            const { ok: fallbackOk, error: fallbackError } =
+              await this.storageRepository.deleteFolder(fallbackPath);
+
+            if (!fallbackOk && fallbackError) {
+              console.error(
+                `❌ Error eliminando carpeta fallback ${fallbackPath}:`,
+                fallbackError
+              );
+            }
+          }
+        }
+      }
+
+      // 3. Eliminar el proyecto (CASCADE eliminará automáticamente productos, views, view_products)
       const { error: deleteError } = await this.supabaseClient
         .from("projects")
         .delete()
@@ -132,7 +182,7 @@ export class SupabaseProjectRepository implements IProjectRepository {
 
       return { ok: true, error: null };
     } catch (err: any) {
-      console.error("Error eliminando proyecto:", err.message);
+      console.error("❌ Error eliminando proyecto:", err.message);
       return { ok: false, error: err.message };
     }
   }

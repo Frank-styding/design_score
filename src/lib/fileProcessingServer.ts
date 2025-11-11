@@ -1,6 +1,7 @@
 import AdmZip from "adm-zip";
 import fs from "fs/promises";
 import path, { basename } from "path";
+import { createExtractorFromData } from "node-unrar-js";
 
 /**
  * Extrae constantes JavaScript del archivo HTML de KeyShot
@@ -53,7 +54,48 @@ export async function extractZipFile(
 }
 
 /**
- * Procesa archivos extraídos del ZIP (HTML + imágenes PNG)
+ * Extrae archivos de un RAR
+ * NOTA: El soporte RAR es experimental y puede no funcionar en todos los entornos.
+ * Se recomienda usar archivos ZIP para mejor compatibilidad.
+ */
+export async function extractRarFile(
+  rarBuffer: Buffer
+): Promise<Map<string, Buffer>> {
+  const fileMap = new Map<string, Buffer>();
+
+  try {
+    const extractor = await createExtractorFromData({
+      data: new Uint8Array(rarBuffer),
+    });
+
+    const list = extractor.getFileList();
+    const fileHeaders = [...list.fileHeaders];
+
+    for (const fileHeader of fileHeaders) {
+      if (!fileHeader.flags.directory) {
+        const extracted = extractor.extract({ files: [fileHeader.name] });
+        const files = [...extracted.files];
+
+        if (files.length > 0 && files[0].extraction) {
+          const content = Buffer.from(files[0].extraction);
+          fileMap.set(fileHeader.name, content);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error extrayendo RAR:", error);
+
+    // Mensaje más descriptivo para archivos RAR
+    throw new Error(
+      "No se pudo procesar el archivo RAR. Por favor, convierte el archivo a formato ZIP y vuelve a intentarlo. Los archivos ZIP son más compatibles y rápidos de procesar."
+    );
+  }
+
+  return fileMap;
+}
+
+/**
+ * Procesa archivos extraídos del ZIP/RAR (HTML + imágenes PNG/JPG)
  * Retorna constantes y lista de archivos de imagen
  */
 export async function processExtractedFiles(
@@ -67,28 +109,42 @@ export async function processExtractedFiles(
 
   // Filtrar archivos relevantes
   for (const [fileName, fileBuffer] of filesMap.entries()) {
-    const baseName = path.basename(fileName);
+    const baseName = path.basename(fileName).toLowerCase();
 
-    // Buscar archivo HTML principal (no instructions.html)
-    if (baseName.endsWith(".html") && !baseName.startsWith("instructions")) {
+    // Buscar archivo HTML principal (excluir instructions.html)
+    if (
+      baseName.endsWith(".html") &&
+      !baseName.includes("instructions") &&
+      !baseName.includes("instruction")
+    ) {
       htmlContent = fileBuffer.toString("utf-8");
     }
 
-    // Buscar imágenes PNG (excluir iconos de KeyShot)
-    if (
-      (baseName.endsWith(".png") || baseName.endsWith(".jpg")) &&
-      !baseName.startsWith("instructions") &&
-      !baseName.startsWith("GoFixedSizeIcon") &&
-      !baseName.startsWith("GoFullScreenIcon") &&
-      !baseName.startsWith("80X80") &&
-      !baseName.startsWith("ks_logo")
-    ) {
-      imageFiles.set(baseName, fileBuffer);
+    // Buscar solo imágenes PNG, JPG o JPEG (excluir iconos de KeyShot e instructions)
+    const isImageFile =
+      baseName.endsWith(".png") ||
+      baseName.endsWith(".jpg") ||
+      baseName.endsWith(".jpeg");
+
+    const isExcludedFile =
+      baseName.includes("instructions") ||
+      baseName.includes("instruction") ||
+      baseName.startsWith("gofixedsizeicon") ||
+      baseName.startsWith("gofullscreenicon") ||
+      baseName.startsWith("80x80") ||
+      baseName.startsWith("ks_logo") ||
+      baseName.includes("xr_cursor") ||
+      baseName.includes("xr_hand");
+
+    if (isImageFile && !isExcludedFile) {
+      // Usar el nombre original del archivo (con mayúsculas/minúsculas correctas)
+      const originalBaseName = path.basename(fileName);
+      imageFiles.set(originalBaseName, fileBuffer);
     }
   }
 
   if (!htmlContent) {
-    throw new Error("No se encontró archivo HTML principal en el ZIP");
+    throw new Error("No se encontró archivo HTML principal en el archivo");
   }
 
   const constants = extractConstantsFromHTML(htmlContent);
@@ -97,14 +153,19 @@ export async function processExtractedFiles(
 }
 
 /**
- * Procesa un archivo ZIP completo: extrae, procesa y retorna datos
+ * Procesa un archivo ZIP/RAR completo: extrae, procesa y retorna datos
  */
-export async function processZipFile(zipBuffer: Buffer): Promise<{
+export async function processZipFile(
+  zipBuffer: Buffer,
+  isRar: boolean = false
+): Promise<{
   constants: Record<string, any>;
   imageFiles: Map<string, Buffer>;
 }> {
-  // 1. Extraer archivos del ZIP
-  const extractedFiles = await extractZipFile(zipBuffer);
+  // 1. Extraer archivos del ZIP o RAR
+  const extractedFiles = isRar
+    ? await extractRarFile(zipBuffer)
+    : await extractZipFile(zipBuffer);
 
   // 2. Procesar archivos extraídos
   const result = await processExtractedFiles(extractedFiles);
