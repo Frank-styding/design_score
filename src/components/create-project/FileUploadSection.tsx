@@ -1,5 +1,6 @@
 import { useState, useRef, DragEvent, useEffect } from "react";
 import Button from "@/src/components/ui/Button";
+import SingleFileUploadModal from "@/src/components/SingleFileUploadModal";
 
 /* interface FileUploadSectionProps {
   initialFiles: File[];
@@ -14,10 +15,12 @@ export default function FileUploadSection({
 }: FileUploadSectionProps) { */
 
 interface FileUploadSectionProps {
-  numProducts: number;
+  /*   numProducts: number; */
   initialFiles?: File[];
   onFilesUploaded: (files: File[]) => void;
   onBack: () => void;
+  adminId?: string;
+  projectId?: string;
 }
 
 export default function FileUploadSection({
@@ -25,9 +28,12 @@ export default function FileUploadSection({
   initialFiles = [],
   onFilesUploaded,
   onBack,
+  adminId = "",
+  projectId = "",
 }: FileUploadSectionProps) {
   const [files, setFiles] = useState<File[]>(initialFiles);
   const [isDragging, setIsDragging] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Actualizar archivos cuando cambien los datos iniciales
@@ -92,6 +98,13 @@ export default function FileUploadSection({
     onBack();
   };
 
+  const handleSingleFileUpload = async (file: File, modelName: string) => {
+    // Aquí puedes procesar el archivo individual si es necesario
+    console.log("Subiendo archivo:", file.name, "con nombre:", modelName);
+    // Por ahora solo lo agregamos a la lista
+    setFiles((prev) => [...prev, file]);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -101,9 +114,22 @@ export default function FileUploadSection({
         <p className="text-gray-600 text-sm">
           Sube los archivos ZIP con las imágenes de tus productos 3D
         </p>
-      </div>{" "}
+      </div>
+
+      {/* Botón para subir un solo archivo */}
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium"
+        >
+          <PlusIcon />
+          <span>Agregar Modelo Individual</span>
+        </button>
+      </div>
+
       {/* Drag and Drop Area */}
-      <div
+      {/* <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -133,7 +159,7 @@ export default function FileUploadSection({
           className="hidden"
           accept=".zip,.rar"
         />
-      </div>
+      </div> */}
       {/* Files List */}
       {files.length > 0 && (
         <div className="space-y-2">
@@ -186,11 +212,38 @@ export default function FileUploadSection({
           Siguiente →
         </Button>
       </div>
+
+      {/* Modal para subir archivo individual */}
+      <SingleFileUploadModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onUpload={handleSingleFileUpload}
+        adminId={adminId}
+        projectId={projectId}
+      />
     </div>
   );
 }
 
 // Iconos SVG
+function PlusIcon() {
+  return (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 4v16m8-8H4"
+      />
+    </svg>
+  );
+}
+
 function UploadIcon() {
   return (
     <svg

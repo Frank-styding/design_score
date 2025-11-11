@@ -3,23 +3,30 @@ import { Project } from "@/src/domain/entities/Project";
 interface ProjectCardProps {
   project: Project;
   onPlay: (projectId: string) => void;
-  onEdit: (projectId: string) => void;
+  onInfo: (projectId: string) => void;
   onDelete: (projectId: string) => void;
 }
 
 export default function ProjectCard({
   project,
   onPlay,
-  onEdit,
+  onInfo,
   onDelete,
 }: ProjectCardProps) {
   // Calcular el peso total del proyecto sumando los weights de todos los productos
   const getTotalWeight = () => {
-    if (!project.products || project.products.length === 0) return 0;
+    if (
+      !project.products ||
+      !Array.isArray(project.products) ||
+      project.products.length === 0
+    ) {
+      return 0;
+    }
     return project.products.reduce((sum, p) => sum + (p.weight || 0), 0);
   };
 
   const totalWeight = getTotalWeight();
+  const numProducts = project.products?.length ?? project.num_products ?? 0;
 
   return (
     <div className="bg-white border border-gray-300 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 h-[16em] w-[15em]">
@@ -32,8 +39,8 @@ export default function ProjectCard({
 
           {/* Información adicional */}
           <div className="flex flex-col gap-1 text-sm text-gray-600 mb-4 text-center">
-            <span>📦 Productos: {project.num_products || 0}</span>
-            <span className="text-blue-600 font-medium">
+            <span>📦 Productos: {numProducts}</span>
+            <span className="text-neutral-600 font-medium">
               💾 Tamaño: {totalWeight.toFixed(2)} MB
             </span>
           </div>
@@ -49,11 +56,11 @@ export default function ProjectCard({
             <PlayIcon />
           </button>
           <button
-            onClick={() => onEdit(project.project_id!)}
-            className="flex items-center justify-center w-10 h-10 bg-gray-600 hover:bg-gray-800 text-white rounded transition-colors"
-            title="Editar"
+            onClick={() => onInfo(project.project_id!)}
+            className="flex items-center justify-center w-10 h-10 bg-neutral-600 hover:bg-neutral-800 text-white rounded transition-colors"
+            title="Información"
           >
-            <EditIcon />
+            <InfoIcon />
           </button>
           <button
             onClick={() => onDelete(project.project_id!)}
@@ -91,6 +98,23 @@ function EditIcon() {
       xmlns="http://www.w3.org/2000/svg"
     >
       <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg
+      className="w-4 h-4"
+      fill="currentColor"
+      viewBox="0 0 20 20"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        fillRule="evenodd"
+        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+        clipRule="evenodd"
+      />
     </svg>
   );
 }

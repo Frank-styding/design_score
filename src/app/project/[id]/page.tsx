@@ -1,0 +1,164 @@
+"use client";
+
+import { useParams } from "next/navigation";
+import { useProjectViewer } from "@/src/hooks/useProjectViewer";
+import KeyShotXRViewer from "@/src/components/KeyShotXRViewer";
+
+export default function ProjectViewerPage() {
+  const params = useParams();
+  const projectId = params.id as string;
+  const viewer = useProjectViewer(projectId);
+
+  if (viewer.isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-black text-xl">Cargando proyecto...</div>
+      </div>
+    );
+  }
+
+  if (viewer.error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-black text-xl">{viewer.error}</div>
+      </div>
+    );
+  }
+
+  // Mostrar mensaje final si ya se completaron todas las vistas
+  if (viewer.showFinalMessage) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white p-8">
+        <div className="max-w-2xl w-full bg-white rounded-lg shadow-xl p-12 text-center">
+          <div className="mb-6">
+            <svg
+              className="w-20 h-20 mx-auto text-green-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+            ¡Recorrido Completado!
+          </h1>
+          {viewer.project?.final_message && (
+            <div className="text-lg text-gray-700 mb-8 whitespace-pre-wrap">
+              {viewer.project.final_message}
+            </div>
+          )}
+          <button
+            onClick={viewer.handleBackToDashboard}
+            className="px-6 py-3 bg-gray-800 hover:bg-black text-white rounded-lg transition-colors font-medium"
+          >
+            Volver al Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Renderizar vista actual
+  const currentView = viewer.currentView;
+  const products = viewer.currentProducts;
+
+  if (!currentView || products.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-black text-xl">
+          No hay productos para mostrar en esta vista
+        </div>
+      </div>
+    );
+  }
+
+  const viewType = products.length === 1 ? "RUTA" : "COMPARATIVO";
+
+  return (
+    <div className="fixed inset-0 bg-white flex flex-col">
+      {/* Header */}
+      <div className="text-white p-4 bg-white z-10">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <p className="text-black text-xl mt-1">
+              {viewType} {viewer.currentViewIndex + 1}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Viewer Content */}
+      <div className="flex-1 w-full overflow-hidden">
+        {/* Grid para COMPARATIVO, single para RUTA */}
+        <div
+          className={`grid h-full w-full ${
+            products.length === 1
+              ? "grid-cols-1"
+              : products.length === 2
+              ? "grid-cols-2"
+              : products.length === 3
+              ? "grid-cols-3"
+              : "grid-cols-2 lg:grid-cols-4"
+          }`}
+        >
+          {products.map((product) => (
+            <div
+              key={product.product_id}
+              className="relative w-full h-full overflow-hidden"
+            >
+              {/* Visor 360 */}
+              {product.path && product.constants ? (
+                <div className="absolute inset-0 w-full h-full">
+                  <KeyShotXRViewer
+                    baseUrl={product.path}
+                    config={product.constants as any}
+                    className="w-full h-full"
+                    style={{ width: "100%", height: "100%" }}
+                  />
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                  Sin vista 360
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Footer con navegación */}
+      <div className="text-white p-6 shadow-lg bg-white">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          {/* Botón Anterior a la izquierda */}
+          <div>
+            {viewer.hasPreviousView && (
+              <button
+                onClick={viewer.handlePreviousView}
+                className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+              >
+                ← Anterior
+              </button>
+            )}
+          </div>
+
+          {/* Botón Siguiente/Finalizar a la derecha */}
+          <div>
+            <button
+              onClick={viewer.handleNextView}
+              className="px-6 py-2 text-black border-1 hover:text-white hover:bg-black rounded transition-colors font-medium"
+            >
+              {viewer.hasNextView ? "Siguiente →" : "Finalizar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

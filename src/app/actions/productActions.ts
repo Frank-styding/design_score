@@ -6,7 +6,6 @@ import { createClient } from "@/src/infrastrucutre/supabse/client";
 import { SupabaseAuthRepository } from "@/src/infrastrucutre/supabse/SupabaseAuthRepository";
 import { SupabaseProductRepository } from "@/src/infrastrucutre/supabse/SupabaseProductRepositry";
 import { SupabaseStorageRepository } from "@/src/infrastrucutre/supabse/SupabaseStorageRepository";
-import { SupabaseClient } from "@supabase/supabase-js";
 
 export async function createProductAction(
   productData: Product
@@ -110,13 +109,6 @@ export async function addImagesBatchAction(
     // Una sola verificación de autenticación
     const admin = await authUseCase.getCurrentUser();
 
-    // 🔍 DEBUG: Información del usuario
-    /*    console.log("🔍 DEBUG - Usuario autenticado:", {
-      id: admin?.id,
-      email: admin?.email,
-      hasUser: !!admin,
-    }); */
-
     if (!admin) {
       console.error("❌ No hay usuario autenticado");
       return { ok: false, error: "No authenticated user", uploaded: 0 };
@@ -128,15 +120,6 @@ export async function addImagesBatchAction(
       .select("product_id, name, admin_id")
       .eq("product_id", productId)
       .single();
-
-    /* console.log("🔍 DEBUG - Producto:", {
-      product_id: productData?.product_id,
-      name: productData?.name,
-      admin_id: productData?.admin_id,
-      current_user_id: admin.id,
-      admin_id_match: productData?.admin_id === admin.id,
-      error: productError?.message,
-    }); */
 
     if (!productData) {
       console.error("❌ Producto no encontrado:", productId);

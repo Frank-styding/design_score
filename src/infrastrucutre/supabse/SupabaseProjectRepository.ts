@@ -77,13 +77,27 @@ export class SupabaseProjectRepository implements IProjectRepository {
   async findByAdminId(adminId: string): Promise<Project[]> {
     const { data, error } = await this.supabaseClient
       .from("projects")
-      .select("*")
+      .select(
+        `
+        *,
+        products (*)
+      `
+      )
       .eq("admin_id", adminId)
       .order("created_at", { ascending: false });
 
     if (error || !data) return [];
 
-    return data.map((row: any) => this.mapToProject(row));
+    return data.map((row: any) => {
+      const project = this.mapToProject(row);
+
+      // Mapear productos si existen
+      if (row.products && Array.isArray(row.products)) {
+        project.products = row.products.map((p: any) => this.mapToProduct(p));
+      }
+
+      return project;
+    });
   }
 
   async updateProject(

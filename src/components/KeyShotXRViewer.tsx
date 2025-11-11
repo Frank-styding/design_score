@@ -401,8 +401,8 @@ function KeyShotXRViewer({
       <iframe
         ref={iframeRef}
         style={{
-          width: "100%",
-          height: "100%",
+          width: width || "100%",
+          height: height || "100%",
           border: "none",
           backgroundColor: mergedConfig.backgroundColor,
         }}
