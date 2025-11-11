@@ -1,7 +1,9 @@
+/* eslint-disable react/forbid-dom-props */
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import KeyShotXRViewer from "@/src/components/KeyShotXRViewer";
+import SyncToggle from "@/src/components/SyncToggle";
 import { Product } from "@/src/domain/entities/Product";
 
 interface OptimizedViewerPoolProps {
@@ -17,31 +19,34 @@ export default function OptimizedViewerPool({
   currentViewIndex,
   gridCols,
 }: OptimizedViewerPoolProps) {
-  // Generar ID único para cada combinación producto-vista
-  const getViewerId = (productId: string, viewIndex: number) =>
-    `${productId}-${viewIndex}`;
+  const [isSynced, setIsSynced] = useState(false);
+  const hasMultipleProducts = currentProducts.length > 1;
+  const iframesRef = useRef<Map<string, HTMLIFrameElement>>(new Map());
+
+  // Sincronización: Deshabilitar la sincronización por ahora
+  // TODO: Implementar sincronización funcional en el futuro
+  useEffect(() => {
+    // Funcionalidad de sincronización deshabilitada temporalmente
+    // El approach actual no funciona correctamente con KeyShotXR
+  }, [isSynced, hasMultipleProducts]);
 
   // Renderizar viewers de forma memoizada
   const currentViewers = useMemo(() => {
     return currentProducts.map((product, index) => {
-      const viewerId = getViewerId(product.product_id!, currentViewIndex);
       return {
-        viewerId,
         product,
         index,
       };
     });
-  }, [currentProducts, currentViewIndex]);
+  }, [currentProducts]);
 
   const nextViewers = useMemo(() => {
     return nextProducts.map((product) => {
-      const viewerId = getViewerId(product.product_id!, currentViewIndex + 1);
       return {
-        viewerId,
         product,
       };
     });
-  }, [nextProducts, currentViewIndex]);
+  }, [nextProducts]);
 
   // Mapeo de gridCols a clases de Tailwind
   const gridClass =
@@ -55,33 +60,43 @@ export default function OptimizedViewerPool({
 
   return (
     <>
-      <div className={`grid gap-2 h-full w-full ${gridClass}`}>
-        {currentViewers.map(({ viewerId, product, index }) => {
-          const hasMultipleProducts = currentProducts.length > 1;
+      {/* Botón de sincronización - DESHABILITADO TEMPORALMENTE
+      {hasMultipleProducts && (
+        <SyncToggle isSynced={isSynced} onToggle={setIsSynced} />
+      )}
+      */}
 
+      <div className={`grid gap-4 h-full w-full ${gridClass} bg-white`}>
+        {currentViewers.map(({ product, index }) => {
           return (
             <div
-              key={`container-${viewerId}`}
-              className="relative w-full h-full overflow-hidden bg-gray-50 flex items-center justify-center"
+              key={`container-${product.product_id}-${currentViewIndex}`}
+              className="relative w-full h-full flex items-center justify-center rounded-lg overflow-hidden"
             >
-              {/* Nombre del producto en comparativos */}
-              {hasMultipleProducts && (
-                <div className="absolute top-2 left-2 right-2 z-10 bg-white bg-opacity-90 px-3 py-1 rounded shadow">
-                  <p className="text-sm font-medium text-gray-800 truncate">
-                    {product.name}
-                  </p>
-                </div>
-              )}
-
-              {/* Visor 360 */}
+              {/* Visor 360 centrado y con tamaño contenido */}
               {product.path && product.constants ? (
-                <div className="w-full h-full flex items-center justify-center">
-                  <KeyShotXRViewer
-                    key={viewerId}
-                    baseUrl={product.path}
-                    config={product.constants as any}
-                    className="w-full h-full"
-                  />
+                <div className="w-full h-full flex items-center justify-center relative">
+                  <div
+                    className={`relative flex items-center justify-center w-full h-full ${
+                      /*         hasMultipleProducts
+                        ? "max-w-[90%] max-h-[85%]"
+                        : "max-w-full max-h-[95%]" */
+                      "max-w-full max-h-[95%]"
+                    }`}
+                  >
+                    <KeyShotXRViewer
+                      key={product.product_id}
+                      baseUrl={product.path}
+                      config={product.constants as any}
+                      className="w-full h-full"
+                      viewerId={product.product_id!}
+                      onIframeReady={(iframe) => {
+                        if (iframe) {
+                          iframesRef.current.set(product.product_id!, iframe);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-center text-gray-400">
@@ -95,11 +110,11 @@ export default function OptimizedViewerPool({
 
       {/* Visores precargados ocultos para la siguiente vista */}
       <div className="hidden">
-        {nextViewers.map(({ viewerId, product }) => (
-          <div key={`preload-${viewerId}`}>
+        {nextViewers.map(({ product }) => (
+          <div key={`preload-${product.product_id}`}>
             {product.path && product.constants && (
               <KeyShotXRViewer
-                key={viewerId}
+                key={product.product_id}
                 baseUrl={product.path}
                 config={product.constants as any}
                 className="w-full h-full"

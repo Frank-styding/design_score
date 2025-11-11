@@ -1,7 +1,9 @@
+/* eslint-disable react/forbid-dom-props */
 "use client";
 
 import { useParams } from "next/navigation";
 import { useProjectViewer } from "@/src/hooks/useProjectViewer";
+import { useModelPreloader } from "@/src/hooks/useModelPreloader";
 import OptimizedViewerPool from "@/src/components/OptimizedViewerPool";
 
 export default function ProjectViewerPage() {
@@ -9,10 +11,17 @@ export default function ProjectViewerPage() {
   const projectId = params.id as string;
   const viewer = useProjectViewer(projectId);
 
+  // Pre-cargar todos los modelos
+  const preloader = useModelPreloader(viewer.views, viewer.allProducts);
+
+  // Mostrar pantalla de carga inicial mientras se cargan datos del proyecto
   if (viewer.isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-black text-xl">Cargando proyecto...</div>
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-black rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="text-black text-xl">Cargando proyecto...</div>
+        </div>
       </div>
     );
   }
@@ -21,6 +30,50 @@ export default function ProjectViewerPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-black text-xl">{viewer.error}</div>
+      </div>
+    );
+  }
+
+  // Mostrar pantalla de pre-carga de modelos
+  if (preloader.isPreloading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="max-w-md w-full px-8">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              Cargando Modelos 3D
+            </h2>
+            <p className="text-gray-600">
+              {preloader.progress.currentProduct || "Preparando..."}
+            </p>
+          </div>
+
+          {/* Barra de progreso */}
+          <div className="mb-4">
+            <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div
+                className="bg-black h-4 transition-all duration-300 ease-out"
+                style={{ width: `${preloader.progress.percentage}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Información de progreso */}
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>
+              {preloader.progress.loadedProducts} de{" "}
+              {preloader.progress.totalProducts} modelos
+            </span>
+            <span className="font-semibold">
+              {preloader.progress.percentage}%
+            </span>
+          </div>
+
+          {/* Spinner */}
+          <div className="flex justify-center mt-8">
+            <div className="w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -87,7 +140,7 @@ export default function ProjectViewerPage() {
       <div className="text-white p-4 bg-white z-10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <p className="text-black text-xl mt-1">
+            <p className="text-black text-[20px] ml-2 mt-1">
               {viewType} {viewer.currentViewIndex + 1}
             </p>
           </div>
@@ -95,10 +148,10 @@ export default function ProjectViewerPage() {
       </div>
 
       {/* Viewer Content */}
-      <div className="flex-1 w-full overflow-hidden">
+      <div className="flex-1 w-full overflow-hidden bg-white">
         <OptimizedViewerPool
           currentProducts={products}
-          nextProducts={viewer.nextProducts}
+          nextProducts={[]} // Ya no necesitamos pre-cargar la siguiente vista
           currentViewIndex={viewer.currentViewIndex}
           gridCols={
             products.length === 1

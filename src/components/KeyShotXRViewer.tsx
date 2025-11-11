@@ -1,3 +1,4 @@
+/* eslint-disable react/forbid-dom-props */
 "use client";
 import { useEffect, useMemo, useRef, memo } from "react";
 
@@ -50,6 +51,10 @@ interface KeyShotXRProps {
   // Props adicionales
   className?: string;
   style?: React.CSSProperties;
+  
+  // Props para sincronización
+  viewerId?: string;
+  onIframeReady?: (iframe: HTMLIFrameElement | null) => void;
 
   // Eventos
   onLoad?: () => void;
@@ -65,15 +70,29 @@ function KeyShotXRViewer({
   height,
   columns,
   rows,
-  backgroundColor,
+  backgroundColor = "white",
   imageExt,
   className,
   style,
+  viewerId,
+  onIframeReady,
   onLoad,
   onProgress,
   onError,
 }: KeyShotXRProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  
+  // Notificar cuando el iframe esté listo
+  useEffect(() => {
+    if (iframeRef.current && onIframeReady) {
+      onIframeReady(iframeRef.current);
+    }
+    return () => {
+      if (onIframeReady) {
+        onIframeReady(null);
+      }
+    };
+  }, [onIframeReady]);
 
   // Mergear configuración: prioridad a config, fallback a props individuales
   const mergedConfig = useMemo(() => {
@@ -84,7 +103,7 @@ function KeyShotXRViewer({
         folderName: baseUrl || "",
         viewPortWidth: config.viewPortWidth || 1024,
         viewPortHeight: config.viewPortHeight || 575,
-        backgroundColor: config.backgroundColor || "#000000",
+        backgroundColor: "#FFFFFF",
         uCount: config.uCount || 36,
         vCount: config.vCount || 5,
         uWrap: config.uWrap !== undefined ? config.uWrap : true,
@@ -102,14 +121,12 @@ function KeyShotXRViewer({
             ? config.uStartIndex
             : Math.floor((config.uCount || 36) / 2),
         vStartIndex: config.vStartIndex !== undefined ? config.vStartIndex : 0,
-        minZoom: config.minZoom !== undefined ? config.minZoom : 1,
-        maxZoom: config.maxZoom !== undefined ? config.maxZoom : 1,
+        // ZOOM PERSONALIZADO: Rango ampliado para que sea más obvio
+        minZoom: 0.5,
+        maxZoom: 2.0,
         rotationDamping:
           config.rotationDamping !== undefined ? config.rotationDamping : 0.96,
-        downScaleToBrowser:
-          config.downScaleToBrowser !== undefined
-            ? config.downScaleToBrowser
-            : true,
+        downScaleToBrowser: false, // Deshabilitado para permitir zoom
         addDownScaleGUIButton:
           config.addDownScaleGUIButton !== undefined
             ? config.addDownScaleGUIButton
@@ -148,10 +165,11 @@ function KeyShotXRViewer({
         vMouseSensitivity: 0.0625,
         uStartIndex: Math.floor(cols / 2),
         vStartIndex: 0,
-        minZoom: 1,
-        maxZoom: 1,
+        // ZOOM PERSONALIZADO: Rango ampliado para que sea más obvio
+        minZoom: 0.5,
+        maxZoom: 2.0,
         rotationDamping: 0.96,
-        downScaleToBrowser: true,
+        downScaleToBrowser: false, // Deshabilitado para permitir zoom
         addDownScaleGUIButton: false,
         downloadOnInteraction: false,
         imageExtension: imageExt || "png",
@@ -243,7 +261,12 @@ function KeyShotXRViewer({
           ${preconnect}
           ${preloadInitial}
           <style type="text/css">
-            body { 
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            html, body { 
               -ms-touch-action: none;
               margin: 0;
               padding: 0;
@@ -251,23 +274,34 @@ function KeyShotXRViewer({
               height: 100%;
               overflow: hidden;
               background: ${cfg.backgroundColor};
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            body > * {
+              width: 100%;
+              height: 100%;
             }
             #${cfg.nameOfDiv} {
               width: 100%;
               height: 100%;
-              /* Mostrar algo al instante: el frame inicial como fondo */
-              background: ${
-                cfg.backgroundColor
-              } url("${initialFrame}") center / contain no-repeat;
+              position: relative;
+              overflow: hidden;
+              background: ${cfg.backgroundColor};
+              display: flex;
+              align-items: center;
+              justify-content: center;
             }
+           
           </style>
           <!-- Carga diferida del script y arranque con DOMContentLoaded para no esperar a window.onload -->
           <script src="/js/KeyShotXR.js" defer></script>
           <script defer>
             function initKeyShotXR() {
-              //console.log("KeyShotXR config:", ${JSON.stringify(cfg)});
-              //console.log("Primer frame esperado:", "${initialFrame}");
-
+         /*      console.log("🔍 KeyShotXR - Zoom ampliado habilitado");
+              console.log("📊 Rango de zoom: 0.5x (50%) a 2.0x (200%)");
+              console.log("🖱️ Usa la rueda del mouse SOBRE el modelo para hacer zoom");
+ */
               var keyshotXR = new window.keyshotXR(
                 "${cfg.nameOfDiv}",
                 "${base}",
@@ -319,7 +353,6 @@ function KeyShotXRViewer({
                   type: 'keyshot-loaded',
                   containerId: '${cfg.nameOfDiv}'
                 }, '*');
-                console.log("KeyShotXR: Todas las imágenes cargadas");
               };
 
               // Paralelismo y semilla de descargas (ajusta entre 6–12 según CDN)
@@ -347,7 +380,7 @@ function KeyShotXRViewer({
             });
           </script>
         </head>
-        <body oncontextmenu="return false;">
+        <body oncontextmenu="return false;" style="display:flex; align-items:center; justify-content:center; width:100%; height:100%; margin:0; padding:0;">
           <div id="${cfg.nameOfDiv}"></div>
         </body>
       </html>
@@ -389,20 +422,25 @@ function KeyShotXRViewer({
 
   return (
     <div
+      className={className}
       style={{
-        width: mergedConfig.viewPortWidth,
-        height: mergedConfig.viewPortHeight,
+        width: "100%",
+        height: "100%",
         position: "relative",
         overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         ...style,
       }}
-      className={className}
     >
       <iframe
         ref={iframeRef}
+        title="KeyShot XR Viewer"
         style={{
-          width: width || "100%",
-          height: height || "100%",
+          display: "flex",
+          width: "100%",
+          height: "100%",
           border: "none",
           backgroundColor: mergedConfig.backgroundColor,
         }}

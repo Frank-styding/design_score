@@ -19,12 +19,11 @@ export function useProjectViewer(projectId: string) {
   const [project, setProject] = useState<Project | null>(null);
   const [views, setViews] = useState<View[]>([]);
   const [currentViewIndex, setCurrentViewIndex] = useState(0);
-  const [currentProducts, setCurrentProducts] = useState<Product[]>([]);
-  const [nextProducts, setNextProducts] = useState<Product[]>([]); // Precarga
+  const [allProducts, setAllProducts] = useState<Product[][]>([]); // Todos los productos de todas las vistas
   const [showFinalMessage, setShowFinalMessage] = useState(false);
 
   /**
-   * Carga los datos del proyecto y sus vistas
+   * Carga los datos del proyecto, vistas y TODOS los productos
    */
   const loadProjectData = async () => {
     try {
@@ -54,72 +53,22 @@ export function useProjectViewer(projectId: string) {
       });
 
       setViews(sortedViews);
+
+      // Cargar TODOS los productos de TODAS las vistas
+      const productsPromises = sortedViews.map((view) =>
+        view.view_id
+          ? getProductsByViewIdAction(view.view_id)
+          : Promise.resolve([])
+      );
+
+      const productsArray = await Promise.all(productsPromises);
+      setAllProducts(productsArray);
     } catch (err: any) {
       console.error("Error cargando proyecto:", err);
       setError(err.message || "Error al cargar el proyecto");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  /**
-   * Carga los productos de la vista actual
-   */
-  const loadCurrentViewProducts = async () => {
-    try {
-      const currentView = views[currentViewIndex];
-      if (!currentView || !currentView.view_id) return;
-
-      const products = await getProductsByViewIdAction(currentView.view_id);
-      setCurrentProducts(products);
-
-      // Precargar imágenes de los productos actuales
-      preloadProductImages(products);
-    } catch (err: any) {
-      console.error("Error cargando productos de la vista:", err);
-    }
-  };
-
-  /**
-   * Precarga los productos de la siguiente vista
-   */
-  const preloadNextViewProducts = async () => {
-    try {
-      const nextIndex = currentViewIndex + 1;
-      if (nextIndex >= views.length) return;
-
-      const nextView = views[nextIndex];
-      if (!nextView || !nextView.view_id) return;
-
-      const products = await getProductsByViewIdAction(nextView.view_id);
-      setNextProducts(products);
-
-      // Precargar imágenes de los productos siguientes
-      preloadProductImages(products);
-    } catch (err: any) {
-      console.error("Error precargando productos de la siguiente vista:", err);
-    }
-  };
-
-  /**
-   * Precarga las imágenes de los productos en segundo plano
-   */
-  const preloadProductImages = (products: Product[]) => {
-    products.forEach((product) => {
-      if (product.path && product.constants) {
-        const config = product.constants as any;
-        const uCount = config.uCount || 36;
-        const vCount = config.vCount || 5;
-        const ext = config.imageExtension || "png";
-
-        // Precargar solo las primeras imágenes (primera fila)
-        for (let u = 0; u < Math.min(uCount, 12); u++) {
-          const imagePath = `${product.path}${u}_0.${ext}`;
-          const img = new Image();
-          img.src = imagePath;
-        }
-      }
-    });
   };
 
   /**
@@ -156,26 +105,8 @@ export function useProjectViewer(projectId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  // Cargar productos cuando cambia la vista actual
-  useEffect(() => {
-    if (views.length > 0 && currentViewIndex < views.length) {
-      loadCurrentViewProducts();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentViewIndex, views]);
-
-  // Precargar siguiente vista cuando cambian los productos actuales
-  useEffect(() => {
-    if (currentProducts.length > 0 && currentViewIndex < views.length - 1) {
-      // Esperar un poco antes de precargar para no interferir con la vista actual
-      const timer = setTimeout(() => {
-        preloadNextViewProducts();
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProducts, currentViewIndex, views]);
+  // Obtener productos de la vista actual
+  const currentProducts = allProducts[currentViewIndex] || [];
 
   return {
     // Estado
@@ -183,10 +114,10 @@ export function useProjectViewer(projectId: string) {
     error,
     project,
     views,
+    allProducts, // Todos los productos cargados
     currentViewIndex,
     currentView: views[currentViewIndex] || null,
-    currentProducts,
-    nextProducts, // Para debug o uso futuro
+    currentProducts, // Productos de la vista actual
     totalViews: views.length,
     showFinalMessage,
 
