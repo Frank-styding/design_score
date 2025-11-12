@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createClient } from "@/src/infrastrucutre/supabse/client";
+import { createServerClient } from "@supabase/ssr";
 
 // Rutas que requieren autenticación
 const protectedRoutes = ["/dashboard", "/upload", "/products", "/surveys"];
 
 // Rutas públicas (accesibles sin autenticación)
-const publicRoutes = ["/"];
+const publicRoutes = ["/", "/unauthorized"];
 
 // Rutas de API que requieren autenticación
 const protectedApiRoutes = ["/api/upload"];
+
+// Tiempo máximo de sesión: 4 horas en milisegundos
+const SESSION_TIMEOUT = 4 * 60 * 60 * 1000;
 
 /**
  * Valida el origen de la petición para prevenir CSRF
@@ -85,22 +88,48 @@ export async function middleware(request: NextRequest) {
   // Proteger rutas API específicas
   if (protectedApiRoutes.some((route) => pathname.startsWith(route))) {
     try {
-      const supabase = await createClient();
+      // Crear respuesta para poder modificar cookies
+      const response = NextResponse.next({
+        request: {
+          headers: request.headers,
+        },
+      });
+
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll();
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                response.cookies.set(name, value, options)
+              );
+            },
+          },
+        }
+      );
+
       const {
         data: { user },
         error,
       } = await supabase.auth.getUser();
 
       if (error || !user) {
-        console.warn("⚠️ API: Usuario no autenticado en:", pathname);
-        return new NextResponse(JSON.stringify({ error: "No autenticado" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        });
+        console.warn(
+          "⚠️ Usuario no autenticado intentando acceder a:",
+          pathname
+        );
+
+        // Redirigir directamente al login con parámetro de retorno
+        const loginUrl = new URL("/", request.url);
+        loginUrl.searchParams.set("redirect", pathname);
+        return NextResponse.redirect(loginUrl);
       }
 
       // Agregar user ID a headers para usar en la API
-      const response = NextResponse.next();
       response.headers.set("x-user-id", user.id);
       return response;
     } catch (error) {
@@ -118,7 +147,29 @@ export async function middleware(request: NextRequest) {
   // Si es una ruta protegida, verificar autenticación
   if (protectedRoutes.some((route) => pathname.startsWith(route))) {
     try {
-      const supabase = await createClient();
+      // Crear respuesta para poder modificar cookies
+      const response = NextResponse.next({
+        request: {
+          headers: request.headers,
+        },
+      });
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll();
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                response.cookies.set(name, value, options)
+              );
+            },
+          },
+        }
+      );
+
       const {
         data: { user },
         error,
@@ -126,21 +177,40 @@ export async function middleware(request: NextRequest) {
 
       if (error || !user) {
         console.warn(
-          "⚠️ Usuario no autenticado, redirigiendo desde:",
+          "⚠️ Usuario no autenticado intentando acceder a:",
           pathname
         );
-        // Redirigir a login y guardar la ruta original
-        const redirectUrl = new URL("/", request.url);
-        // Sanitizar pathname antes de guardarlo
-        const safePath = pathname.replace(/[<>'"]/g, "");
-        redirectUrl.searchParams.set("redirectTo", safePath);
-        return NextResponse.redirect(redirectUrl);
+
+        // Redirigir a página 404 de acceso no autorizado
+        return NextResponse.redirect(new URL("/unauthorized", request.url));
       }
 
-      // Usuario autenticado - continuar con headers de seguridad adicionales
-      const response = NextResponse.next();
+      // Verificar expiración de sesión (4 horas)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      // Agregar headers específicos para rutas autenticadas
+      if (session) {
+        // Tomamos la última hora de inicio de sesión real
+        const sessionStart = new Date(
+          +(session.user.last_sign_in_at as string)
+        ).getTime();
+        const now = Date.now();
+
+        // Diferencia en milisegundos
+        const sessionAge = now - sessionStart;
+
+        // Si la sesión tiene más de 4 horas, cerramos
+        if (sessionAge > SESSION_TIMEOUT) {
+          console.warn("⏰ Sesión expirada automáticamente");
+          await supabase.auth.signOut();
+          const redirectUrl = new URL("/", request.url);
+          redirectUrl.searchParams.set("session", "expired");
+          return NextResponse.redirect(redirectUrl);
+        }
+      }
+
+      // Usuario autenticado - agregar headers de seguridad
       response.headers.set("X-Authenticated", "true");
       response.headers.set(
         "Cache-Control",
@@ -150,7 +220,8 @@ export async function middleware(request: NextRequest) {
       return response;
     } catch (error) {
       console.error("❌ Error en middleware:", error);
-      return NextResponse.redirect(new URL("/", request.url));
+      // Si hay error, redirigir a página de acceso no autorizado
+      return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
   }
 

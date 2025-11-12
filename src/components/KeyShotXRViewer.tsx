@@ -59,6 +59,23 @@ interface KeyShotXRProps {
   onLoad?: () => void;
   onProgress?: (progress: number) => void;
   onError?: (error: string) => void;
+
+  // NUEVO: alterna entre precarga de imágenes y carga directa
+  preloadImages?: boolean;
+}
+
+function preloadImages(urls: string[]): Promise<void[]> {
+  return Promise.all(
+    urls.map(
+      (url) =>
+        new Promise<void>((resolve, reject) => {
+          const img = new window.Image();
+          img.onload = () => resolve();
+          img.onerror = () => reject(url);
+          img.src = url;
+        })
+    )
+  );
 }
 
 function KeyShotXRViewer({
@@ -78,6 +95,7 @@ function KeyShotXRViewer({
   onLoad,
   onProgress,
   onError,
+  preloadImages = false,
 }: KeyShotXRProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -516,7 +534,7 @@ function KeyShotXRViewer({
       </html>
     `;
 
-    const iframeDoc = iframeRef.current.contentWindow?.document;
+    const iframeDoc = iframeRef.current!.contentWindow?.document;
     if (iframeDoc) {
       iframeDoc.open();
       iframeDoc.write(html);
@@ -548,32 +566,36 @@ function KeyShotXRViewer({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [normalized, onLoad, onProgress, onError]);
+  }, [normalized, onLoad, onProgress, onError, preloadImages]);
 
   return (
     <div
       className={className}
-      style={{
-        width: "100%",
-        height: "100%",
-        position: "relative",
-        overflow: "hidden",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        ...style,
-      } as React.CSSProperties}
+      style={
+        {
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          ...style,
+        } as React.CSSProperties
+      }
     >
       <iframe
         ref={iframeRef}
         title="KeyShot XR Viewer"
-        style={{
-          display: "flex",
-          width: "100%",
-          height: "100%",
-          border: "none",
-          backgroundColor: mergedConfig.backgroundColor,
-        } as React.CSSProperties}
+        style={
+          {
+            display: "flex",
+            width: "100%",
+            height: "100%",
+            border: "none",
+            backgroundColor: mergedConfig.backgroundColor,
+          } as React.CSSProperties
+        }
         allow="fullscreen"
       />
     </div>

@@ -1,9 +1,10 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, notFound } from "next/navigation";
 import { useProjectViewer } from "@/src/hooks/useProjectViewer";
 import { useModelPreloader } from "@/src/hooks/useModelPreloader";
 import OptimizedViewerPool from "@/src/components/OptimizedViewerPool";
+import { useEffect } from "react";
 
 export default function ProjectViewerPage() {
   const params = useParams();
@@ -12,6 +13,18 @@ export default function ProjectViewerPage() {
 
   // Pre-cargar todos los modelos
   const preloader = useModelPreloader(viewer.views, viewer.allProducts);
+
+  // Si hay un error que indica que el proyecto no existe o no hay admin, mostrar 404
+  useEffect(() => {
+    if (
+      viewer.error &&
+      (viewer.error.includes("no encontrado") ||
+        viewer.error.includes("no existe") ||
+        viewer.error.includes("not found"))
+    ) {
+      notFound();
+    }
+  }, [viewer.error]);
 
   // Mostrar pantalla de carga inicial mientras se cargan datos del proyecto
   if (viewer.isLoading) {
@@ -50,10 +63,13 @@ export default function ProjectViewerPage() {
           {/* Barra de progreso */}
           <div className="mb-4">
             <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-css-tags */}
               <div
                 className="bg-black h-4 transition-all duration-300 ease-out"
-                style={{ width: `${preloader.progress.percentage}%` } as React.CSSProperties}
+                style={
+                  {
+                    width: `${preloader.progress.percentage}%`,
+                  } as React.CSSProperties
+                }
               />
             </div>
           </div>

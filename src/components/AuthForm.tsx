@@ -28,7 +28,7 @@ export default function AuthForm({ onAuthSuccess }: AuthFormProps) {
     setMode("signin");
   }, []);
 
-  const handleClearSession = async () => {
+  /*  const handleClearSession = async () => {
     try {
       await signOutAction();
       setError(null);
@@ -38,7 +38,7 @@ export default function AuthForm({ onAuthSuccess }: AuthFormProps) {
     } catch (err: any) {
       console.error("Error limpiando sesión:", err);
     }
-  };
+  }; */
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
