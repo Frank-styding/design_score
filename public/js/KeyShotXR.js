@@ -30,6 +30,32 @@ window.keyshotXR = function (
   r,
   Ja
 ) {
+  // --- INICIO: Ventana deslizante para carga bajo demanda ---
+  // Solo mantener en memoria los frames cercanos al actual (±windowSize)
+  var windowSize = 3; // Puedes ajustar este valor
+  function updateImageWindow(currentFrameIndex) {
+    var totalFrames = e.q;
+    var minFrame = Math.max(0, currentFrameIndex - windowSize);
+    var maxFrame = Math.min(totalFrames - 1, currentFrameIndex + windowSize);
+    // Cargar imágenes dentro de la ventana
+    for (var i = minFrame; i <= maxFrame; i++) {
+      if (!a.G[i]) {
+        var img = new Image();
+        img.src = a.D[i];
+        a.G[i] = img;
+      }
+    }
+    // Liberar imágenes fuera de la ventana
+    for (var i = 0; i < totalFrames; i++) {
+      if (i < minFrame || i > maxFrame) {
+        if (a.G[i]) {
+          a.G[i].src = "";
+          a.G[i] = null;
+        }
+      }
+    }
+  }
+  // --- FIN: Ventana deslizante ---
   const path = w;
   function P(a, f, b) {
     a.removeEventListener
@@ -393,6 +419,9 @@ window.keyshotXR = function (
       if (a.ja) return;
       e.J = u;
       var d = parseInt(e.K * e.c + e.I);
+      // --- INICIO: Actualizar ventana de imágenes ---
+      updateImageWindow(d);
+      // --- FIN ---
       if (
         -1 != a.F[d] &&
         (W.setAttribute("src", a.D[d]), W.complete || (a.ja = p), void 0 !== r)
