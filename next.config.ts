@@ -105,8 +105,9 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["@supabase/supabase-js", "@supabase/ssr"],
     serverActions: {
-      bodySizeLimit: "2mb", // Límite aumentado a 2MB (por defecto es 1MB)
+      bodySizeLimit: "100mb", // O el tamaño que necesites
     },
+    middlewareClientMaxBodySize: 100 * 1024 * 1024, // 100MB
   },
 };
 

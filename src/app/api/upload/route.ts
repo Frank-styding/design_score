@@ -153,8 +153,25 @@ async function handleUploadStream(
     delayBetweenBatches: 350,
   });
 
-  // Parsear formulario y validar
-  const formData = await request.formData();
+  // Verificar Content-Type antes de parsear
+  const contentType = request.headers.get("content-type") || "";
+  if (!contentType.startsWith("multipart/form-data")) {
+    sse.sendError("El request debe ser multipart/form-data");
+    sse.close();
+    return;
+  }
+
+  // Parsear formulario y validar con manejo de error
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch (_err) {
+    sse.sendError(
+      "No se pudo parsear el formulario. Asegúrate de enviar un archivo usando FormData."
+    );
+    sse.close();
+    return;
+  }
   const file = formData.get("file") as File;
   const product_id = formData.get("product_id") as string;
   const admin_id = formData.get("admin_id") as string;

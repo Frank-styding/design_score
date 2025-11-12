@@ -6,10 +6,10 @@ import { createServerClient } from "@supabase/ssr";
 const protectedRoutes = ["/dashboard", "/upload", "/products", "/surveys"];
 
 // Rutas públicas (accesibles sin autenticación)
-const publicRoutes = ["/", "/unauthorized"];
+const publicRoutes = ["/", "/unauthorized", "/api/upload"];
 
 // Rutas de API que requieren autenticación
-const protectedApiRoutes = ["/api/upload"];
+const protectedApiRoutes = [];
 
 // Tiempo máximo de sesión: 4 horas en milisegundos
 const SESSION_TIMEOUT = 4 * 60 * 60 * 1000;
