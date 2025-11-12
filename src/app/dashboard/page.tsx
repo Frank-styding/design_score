@@ -2,6 +2,7 @@
 
 import ProjectCard from "@/src/components/ProjectCard";
 import LoadingModal from "@/src/components/LoadingModal";
+import DeleteProjectModal from "@/src/components/DeleteProjectModal";
 import { useDashboard } from "@/src/hooks/useDashboard";
 import { signOutAction } from "@/src/app/actions/authActions";
 import { useRouter } from "next/navigation";
@@ -92,6 +93,15 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de confirmación de eliminación */}
+      <DeleteProjectModal
+        isOpen={dashboard.modalOpen}
+        projectName={dashboard.pendingProject?.name || ""}
+        numProducts={dashboard.pendingProject?.numProducts || 0}
+        onConfirm={dashboard.handleModalConfirm}
+        onCancel={dashboard.handleModalCancel}
+      />
 
       {/* Modal de carga para eliminación */}
       <LoadingModal

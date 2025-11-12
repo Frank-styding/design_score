@@ -205,7 +205,9 @@ export function useModelPreloader(views: View[], allProducts: Product[][]) {
           }));
 
           // ⚡ CARGAR 3 PRODUCTOS EN PARALELO
-          await Promise.all(batch.map((product) => preloadProductImages(product)));
+          await Promise.all(
+            batch.map((product) => preloadProductImages(product))
+          );
 
           // Actualizar progreso después del lote
           loadedCount += batch.length;

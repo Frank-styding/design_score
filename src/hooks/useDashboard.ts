@@ -29,25 +29,23 @@ export function useDashboard() {
   /**
    * Maneja el evento de eliminar un proyecto
    */
-  const handleDelete = async (projectId: string) => {
+  const handleDelete = (projectId: string) => {
     const project = projectsState.findProject(projectId);
     const projectName = project?.name || "este proyecto";
     const numProducts = project?.num_products || 0;
-
-    // Confirmar con el usuario
-    const confirmed = deletionState.confirmDeletion(projectName, numProducts);
-    if (!confirmed) return;
-
-    // Ejecutar eliminación con progreso
-    const result = await deletionState.deleteProject(projectId, projectName);
-
-    if (result.success) {
-      // Recargar proyectos después de eliminar exitosamente
-      await projectsState.loadProjects();
-    } else {
-      // Mostrar error al usuario
-      alert(`❌ Error al eliminar: ${result.error}`);
-    }
+    deletionState.confirmDeletion(
+      projectId,
+      projectName,
+      numProducts,
+      async () => {
+        const result = await deletionState.deleteProject(projectId, projectName);
+        if (result.success) {
+          await projectsState.loadProjects();
+        } else {
+          alert(`❌ Error al eliminar: ${result.error}`);
+        }
+      }
+    );
   };
 
   /**
@@ -67,6 +65,10 @@ export function useDashboard() {
     isDeleting: deletionState.isDeleting,
     deleteProgress: deletionState.deleteProgress,
     deleteMessage: deletionState.deleteMessage,
+    modalOpen: deletionState.modalOpen,
+    pendingProject: deletionState.pendingProject,
+    handleModalConfirm: deletionState.handleModalConfirm,
+    handleModalCancel: deletionState.handleModalCancel,
 
     // Acciones
     handlePlay,

@@ -17,7 +17,7 @@ function LoginPageContent() {
       ? "Tu sesión ha expirado después de 4 horas de inactividad. Por favor, inicia sesión nuevamente."
       : "";
 
-  // Verificar si ya hay una sesión activa
+  // Verificar si ya hay una sesión activa (usando getUser de forma segura)
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -26,11 +26,10 @@ function LoginPageContent() {
           process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
         );
 
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw error;
 
-        if (session?.user) {
+        if (data.user) {
           // Si hay sesión activa, redirigir al dashboard
           router.push("/dashboard");
         } else {
@@ -41,9 +40,10 @@ function LoginPageContent() {
         setIsChecking(false);
       }
     };
-
     checkSession();
   }, [router]);
+
+  // ...existing code...
 
   const handleAuthSuccess = () => {
     // Redirigir directamente a /dashboard

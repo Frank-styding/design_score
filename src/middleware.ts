@@ -62,7 +62,7 @@ function sanitizeSearchParams(request: NextRequest): void {
   });
 }
 
-export async function middleware(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Sanitizar parámetros de query
@@ -185,15 +185,18 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL("/unauthorized", request.url));
       }
 
-      // Verificar expiración de sesión (4 horas)
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      // Verificar expiración de sesión (4 horas) de forma segura
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+      if (userError) {
+        console.error("Error obteniendo usuario autenticado:", userError);
+        return NextResponse.redirect(new URL("/unauthorized", request.url));
+      }
 
-      if (session) {
+      if (userData.user) {
         // Tomamos la última hora de inicio de sesión real
         const sessionStart = new Date(
-          +(session.user.last_sign_in_at as string)
+          +(userData.user.last_sign_in_at as string)
         ).getTime();
         const now = Date.now();
 

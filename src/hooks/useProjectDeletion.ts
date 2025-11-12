@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useCallback } from "react";
 import { deleteProjectAction } from "@/src/app/actions/projectActions";
 import { useLoadingState } from "./useLoadingState";
 
@@ -16,24 +17,37 @@ export interface DeleteResult {
 export function useProjectDeletion() {
   const loadingState = useLoadingState();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [pendingProject, setPendingProject] = useState<{ name: string; numProducts: number; id: string } | null>(null);
+  const [onConfirmCallback, setOnConfirmCallback] = useState<(() => void) | null>(null);
 
   /**
    * Confirma con el usuario antes de eliminar
    */
+  // Nueva confirmación con modal
   const confirmDeletion = (
+    projectId: string,
     projectName: string,
-    numProducts: number
-  ): boolean => {
-    return window.confirm(
-      `⚠️ ¿Estás seguro de que deseas eliminar "${projectName}"?\n\n` +
-        `Esto eliminará:\n` +
-        `• El proyecto\n` +
-        `• Todos los productos asociados (${numProducts})\n` +
-        `• Todas las imágenes en la nube\n` +
-        `• Todas las vistas configuradas\n\n` +
-        `Esta acción NO se puede deshacer.`
-    );
+    numProducts: number,
+    onConfirm: () => void
+  ) => {
+    setPendingProject({ id: projectId, name: projectName, numProducts });
+    setOnConfirmCallback(() => onConfirm);
+    setModalOpen(true);
   };
+
+  const handleModalConfirm = useCallback(() => {
+    setModalOpen(false);
+    if (onConfirmCallback) onConfirmCallback();
+    setPendingProject(null);
+    setOnConfirmCallback(null);
+  }, [onConfirmCallback]);
+
+  const handleModalCancel = useCallback(() => {
+    setModalOpen(false);
+    setPendingProject(null);
+    setOnConfirmCallback(null);
+  }, []);
 
   /**
    * Elimina un proyecto con progreso visual
@@ -119,5 +133,9 @@ export function useProjectDeletion() {
     deleteMessage: loadingState.message,
     confirmDeletion,
     deleteProject,
+    modalOpen,
+    pendingProject,
+    handleModalConfirm,
+    handleModalCancel,
   };
 }

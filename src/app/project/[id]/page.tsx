@@ -60,7 +60,6 @@ export default function ProjectViewerPage() {
             </p>
           </div>
 
-          {/* Barra de progreso */}
           <div className="mb-4">
             <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
               <div
@@ -74,7 +73,6 @@ export default function ProjectViewerPage() {
             </div>
           </div>
 
-          {/* Información de progreso */}
           <div className="flex justify-between text-sm text-gray-600">
             <span>
               {preloader.progress.loadedProducts} de{" "}
@@ -85,7 +83,6 @@ export default function ProjectViewerPage() {
             </span>
           </div>
 
-          {/* Spinner */}
           <div className="flex justify-center mt-8">
             <div className="w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
           </div>

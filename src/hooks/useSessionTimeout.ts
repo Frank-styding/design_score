@@ -18,13 +18,12 @@ export function useSessionTimeout() {
         process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
       );
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
 
-      if (session) {
-        // Obtener el tiempo de creación de la sesión
-        const sessionCreatedAt = new Date(session.user.created_at).getTime();
+      if (data.user) {
+        // Obtener el tiempo de creación del usuario
+        const sessionCreatedAt = new Date(data.user.created_at).getTime();
         const now = Date.now();
         const sessionAge = now - sessionCreatedAt;
 

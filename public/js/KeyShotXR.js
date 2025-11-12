@@ -30,7 +30,7 @@ window.keyshotXR = function (
   r,
   Ja
 ) {
-  // --- INICIO: Ventana deslizante para carga bajo demanda ---
+  /*  // --- INICIO: Ventana deslizante para carga bajo demanda ---
   // Solo mantener en memoria los frames cercanos al actual (±windowSize)
   var windowSize = 3; // Puedes ajustar este valor
   function updateImageWindow(currentFrameIndex) {
@@ -54,7 +54,7 @@ window.keyshotXR = function (
         }
       }
     }
-  }
+  } */
   // --- FIN: Ventana deslizante ---
   const path = w;
   function P(a, f, b) {
@@ -420,7 +420,7 @@ window.keyshotXR = function (
       e.J = u;
       var d = parseInt(e.K * e.c + e.I);
       // --- INICIO: Actualizar ventana de imágenes ---
-      updateImageWindow(d);
+      /*   updateImageWindow(d); */
       // --- FIN ---
       if (
         -1 != a.F[d] &&
