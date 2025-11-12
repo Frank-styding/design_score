@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, memo } from "react";
 
 // Configuración completa de KeyShotXR según el formato original
-interface KeyShotXRConfig {
+export interface KeyShotXRConfig {
   nameOfDiv?: string;
   folderName: string; // Equivalente a baseUrl
   viewPortWidth?: number;

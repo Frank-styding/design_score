@@ -38,7 +38,10 @@ export function useDashboard() {
       projectName,
       numProducts,
       async () => {
-        const result = await deletionState.deleteProject(projectId, projectName);
+        const result = await deletionState.deleteProject(
+          projectId,
+          projectName
+        );
         if (result.success) {
           await projectsState.loadProjects();
         } else {

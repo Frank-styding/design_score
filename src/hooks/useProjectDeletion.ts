@@ -18,8 +18,14 @@ export function useProjectDeletion() {
   const loadingState = useLoadingState();
   const [isDeleting, setIsDeleting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [pendingProject, setPendingProject] = useState<{ name: string; numProducts: number; id: string } | null>(null);
-  const [onConfirmCallback, setOnConfirmCallback] = useState<(() => void) | null>(null);
+  const [pendingProject, setPendingProject] = useState<{
+    name: string;
+    numProducts: number;
+    id: string;
+  } | null>(null);
+  const [onConfirmCallback, setOnConfirmCallback] = useState<
+    (() => void) | null
+  >(null);
 
   /**
    * Confirma con el usuario antes de eliminar

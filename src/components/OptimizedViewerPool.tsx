@@ -199,6 +199,18 @@ export default function OptimizedViewerPool({
       ? "grid-cols-3"
       : "grid-cols-2 lg:grid-cols-4";
 
+  // Utilidad para obtener la URL base del visor
+  const cdnBaseUrl = process.env.NEXT_PUBLIC_CDN_BASE_URL;
+  function getViewerBaseUrl(product: Product): string | undefined {
+    const userId = product.user_id;
+    const productId = product.product_id;
+    if (cdnBaseUrl && userId && productId) {
+      return `${cdnBaseUrl}/${userId}/${productId}`;
+    }
+    // Si falta user_id o product_id, usar product.path como fallback
+    return product.path;
+  }
+
   return (
     <>
       {/* Botón de sincronización */}
@@ -208,6 +220,7 @@ export default function OptimizedViewerPool({
 
       <div className={`grid gap-4 h-full w-full ${gridClass} bg-white`}>
         {currentViewers.map(({ product, index }) => {
+          const baseUrl = getViewerBaseUrl(product);
           return (
             <div
               key={`container-${product.product_id}-${currentViewIndex}`}
@@ -218,7 +231,7 @@ export default function OptimizedViewerPool({
               }`}
             >
               {/* Visor 360 centrado y con tamaño contenido */}
-              {product.path && product.constants ? (
+              {baseUrl && product.constants ? (
                 <div className="w-full h-full flex items-center justify-center relative">
                   {/* Indicador de sincronización/bloqueo */}
                   {isSynced && hasMultipleProducts && (
@@ -246,16 +259,11 @@ export default function OptimizedViewerPool({
                   )}
 
                   <div
-                    className={`relative flex items-center justify-center w-full h-full ${
-                      /*         hasMultipleProducts
-                        ? "max-w-[90%] max-h-[85%]"
-                        : "max-w-full max-h-[95%]" */
-                      "max-w-full max-h-[95%]"
-                    }`}
+                    className={`relative flex items-center justify-center w-full h-full max-w-full max-h-[95%]`}
                   >
                     <KeyShotXRViewer
                       key={product.product_id}
-                      baseUrl={product.path}
+                      baseUrl={baseUrl}
                       config={product.constants as any}
                       className="w-full h-full"
                       viewerId={product.product_id!}
@@ -283,18 +291,21 @@ export default function OptimizedViewerPool({
 
       {/* Visores precargados ocultos para la siguiente vista */}
       <div className="hidden">
-        {nextViewers.map(({ product }) => (
-          <div key={`preload-${product.product_id}`}>
-            {product.path && product.constants && (
-              <KeyShotXRViewer
-                key={product.product_id}
-                baseUrl={product.path}
-                config={product.constants as any}
-                className="w-full h-full"
-              />
-            )}
-          </div>
-        ))}
+        {nextViewers.map(({ product }) => {
+          const baseUrl = getViewerBaseUrl(product);
+          return (
+            <div key={`preload-${product.product_id}`}>
+              {baseUrl && product.constants && (
+                <KeyShotXRViewer
+                  key={product.product_id}
+                  baseUrl={baseUrl}
+                  config={product.constants as any}
+                  className="w-full h-full"
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     </>
   );
