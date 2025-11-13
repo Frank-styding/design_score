@@ -88,15 +88,20 @@ export default function ViewProduct({ adminId }: ViewProductProps) {
             Seleccionar Producto:
           </label>
           <select
-            value={selectedProduct?.id || ""}
+            value={selectedProduct?.id || selectedProduct?.product_id || ""}
             onChange={(e) => {
-              const product = products.find((p) => p.id === e.target.value);
+              const product = products.find(
+                (p) => (p.id || p.product_id) === e.target.value
+              );
               setSelectedProduct(product || null);
             }}
             className="flex-1 max-w-md px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black bg-white"
           >
             {products.map((product) => (
-              <option key={product.id} value={product.id}>
+              <option
+                key={product.id || product.product_id}
+                value={product.id || product.product_id}
+              >
                 {product.name} ({product.num_images || 0} imágenes,{" "}
                 {((product.size || 0) / 1024 / 1024).toFixed(2)} MB)
               </option>
@@ -115,8 +120,14 @@ export default function ViewProduct({ adminId }: ViewProductProps) {
       {selectedProduct && selectedProduct.constants && (
         <div className="flex-1 overflow-hidden">
           <KeyShotXRViewer
-            config={JSON.parse(selectedProduct.constants)}
-            baseUrl={`https://emrgqbrqnqpbkrpruwts.supabase.co/storage/v1/object/public/files/${adminId}/${selectedProduct.id}/`}
+            config={
+              typeof selectedProduct.constants === "string"
+                ? JSON.parse(selectedProduct.constants)
+                : (selectedProduct.constants as Record<string, unknown>)
+            }
+            baseUrl={`https://emrgqbrqnqpbkrpruwts.supabase.co/storage/v1/object/public/files/${adminId}/${
+              selectedProduct.id || selectedProduct.product_id
+            }/`}
           />
         </div>
       )}

@@ -64,8 +64,22 @@ export async function extractRarFile(
   const fileMap = new Map<string, Buffer>();
 
   try {
+    // Asegurar que pasamos un Uint8Array con el ArrayBuffer y offset correctos
+    const uint8 = new Uint8Array(
+      rarBuffer.buffer,
+      rarBuffer.byteOffset,
+      rarBuffer.byteLength
+    );
+
+    // node-unrar-js espera un ArrayBuffer; crear una vista exacta con slice
+    const arrayBuffer = uint8.buffer.slice(
+      uint8.byteOffset,
+      uint8.byteOffset + uint8.byteLength
+    );
+
+    // TS: asegurar que el tipo es ArrayBuffer
     const extractor = await createExtractorFromData({
-      data: new Uint8Array(rarBuffer),
+      data: arrayBuffer as ArrayBuffer,
     });
 
     const list = extractor.getFileList();
