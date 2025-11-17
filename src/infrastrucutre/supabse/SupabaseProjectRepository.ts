@@ -51,53 +51,121 @@ export class SupabaseProjectRepository implements IProjectRepository {
   }
 
   async findByIdWithProducts(projectId: string): Promise<Project | null> {
-    const { data, error } = await this.supabaseClient
+    // Obtener el proyecto
+    const { data: projectData, error: projectError } = await this.supabaseClient
       .from("projects")
-      .select(
-        `
-        *,
-        products (*)
-      `
-      )
+      .select("*")
       .eq("project_id", projectId)
       .single();
 
-    if (error || !data) return null;
+    if (projectError || !projectData) return null;
 
-    const project = this.mapToProject(data);
+    const project = this.mapToProject(projectData);
 
-    // Mapear productos si existen
-    if (data.products && Array.isArray(data.products)) {
-      project.products = data.products.map((p: any) => this.mapToProduct(p));
+    // Obtener productos a través de la tabla intermedia
+    const { data: projectProductsData, error: ppError } =
+      await this.supabaseClient
+        .from("project_products")
+        .select("product_id")
+        .eq("project_id", projectId);
+
+    if (ppError || !projectProductsData || projectProductsData.length === 0) {
+      project.num_products = 0;
+      project.size = 0;
+      return project;
+    }
+
+    // Obtener los productos completos verificando que pertenecen al admin del proyecto
+    const productIds = projectProductsData.map((pp) => pp.product_id);
+    const { data: productsData, error: productsError } =
+      await this.supabaseClient
+        .from("products")
+        .select("*")
+        .in("product_id", productIds)
+        .eq("admin_id", project.admin_id);
+
+    if (!productsError && productsData) {
+      project.products = productsData.map((p: any) => this.mapToProduct(p));
+
+      // Calcular número de productos
+      project.num_products = project.products.length;
+
+      // Calcular tamaño total en MB
+      project.size = project.products.reduce((total, product) => {
+        return total + (product.weight || 0);
+      }, 0);
+    } else {
+      project.num_products = 0;
+      project.size = 0;
     }
 
     return project;
   }
 
   async findByAdminId(adminId: string): Promise<Project[]> {
+    // Obtener proyectos del admin
     const { data, error } = await this.supabaseClient
       .from("projects")
-      .select(
-        `
-        *,
-        products (*)
-      `
-      )
+      .select("*")
       .eq("admin_id", adminId)
       .order("created_at", { ascending: false });
 
     if (error || !data) return [];
 
-    return data.map((row: any) => {
-      const project = this.mapToProject(row);
+    // Para cada proyecto, obtener sus productos
+    const projectsWithProducts = await Promise.all(
+      data.map(async (row: any) => {
+        const project = this.mapToProject(row);
 
-      // Mapear productos si existen
-      if (row.products && Array.isArray(row.products)) {
-        project.products = row.products.map((p: any) => this.mapToProduct(p));
-      }
+        // Obtener productos del proyecto a través de la tabla intermedia
+        const { data: projectProductsData, error: ppError } =
+          await this.supabaseClient
+            .from("project_products")
+            .select("product_id")
+            .eq("project_id", project.project_id);
 
-      return project;
-    });
+        if (
+          ppError ||
+          !projectProductsData ||
+          projectProductsData.length === 0
+        ) {
+          project.products = [];
+          project.num_products = 0;
+          project.size = 0;
+        } else {
+          // Obtener los productos completos verificando que pertenecen al admin
+          const productIds = projectProductsData.map((pp) => pp.product_id);
+          const { data: productsData, error: productsError } =
+            await this.supabaseClient
+              .from("products")
+              .select("*")
+              .in("product_id", productIds)
+              .eq("admin_id", adminId);
+
+          if (!productsError && productsData) {
+            project.products = productsData.map((p: any) =>
+              this.mapToProduct(p)
+            );
+
+            // Calcular número de productos
+            project.num_products = project.products.length;
+
+            // Calcular tamaño total en MB
+            project.size = project.products.reduce((total, product) => {
+              return total + (product.weight || 0);
+            }, 0);
+          } else {
+            project.products = [];
+            project.num_products = 0;
+            project.size = 0;
+          }
+        }
+
+        return project;
+      })
+    );
+
+    return projectsWithProducts;
   }
 
   async updateProject(
@@ -139,52 +207,78 @@ export class SupabaseProjectRepository implements IProjectRepository {
     try {
       // 1. Obtener todos los productos del proyecto para eliminar sus imágenes
       if (this.productRepository && this.storageRepository) {
-        const { data: productsData, error: productsError } =
+        // Obtener el admin_id del proyecto primero
+        const { data: projectData } = await this.supabaseClient
+          .from("projects")
+          .select("admin_id")
+          .eq("project_id", projectId)
+          .single();
+
+        const { data: projectProductsData, error: projectProductsError } =
           await this.supabaseClient
-            .from("products")
-            .select("product_id, admin_id, path")
+            .from("project_products")
+            .select("product_id")
             .eq("project_id", projectId);
 
-        if (productsError) {
+        if (projectProductsError) {
           console.error(
             "❌ Error al obtener productos:",
-            productsError.message
+            projectProductsError.message
           );
         }
 
-        // 2. Eliminar las carpetas de imágenes de cada producto
-        if (productsData && productsData.length > 0) {
-          for (const product of productsData) {
-            if (product.path) {
-              // Eliminar la carpeta completa del producto
-              const { ok, error } = await this.storageRepository.deleteFolder(
-                product.path
-              );
+        // 2. Obtener detalles de productos para eliminar sus carpetas
+        if (projectProductsData && projectProductsData.length > 0) {
+          const productIds = projectProductsData.map((pp) => pp.product_id);
 
-              if (!ok) {
+          const { data: productsData, error: productsError } =
+            await this.supabaseClient
+              .from("products")
+              .select("product_id, admin_id, path")
+              .in("product_id", productIds)
+              .eq("admin_id", projectData?.admin_id);
+
+          if (productsError) {
+            console.error(
+              "❌ Error al obtener productos:",
+              productsError.message
+            );
+          }
+
+          // 3. Eliminar las carpetas de imágenes de cada producto
+          if (productsData && productsData.length > 0) {
+            for (const product of productsData) {
+              if (product.path) {
+                // Eliminar la carpeta completa del producto
+                const { ok, error } = await this.storageRepository.deleteFolder(
+                  product.path
+                );
+
+                if (!ok) {
+                  console.error(
+                    `❌ Error eliminando carpeta ${product.path}:`,
+                    error
+                  );
+                }
+              }
+
+              // También intentar eliminar carpeta por admin_id/product_id si existe
+              const fallbackPath = `${product.admin_id}/${product.product_id}`;
+              const { ok: fallbackOk, error: fallbackError } =
+                await this.storageRepository.deleteFolder(fallbackPath);
+
+              if (!fallbackOk && fallbackError) {
                 console.error(
-                  `❌ Error eliminando carpeta ${product.path}:`,
-                  error
+                  `❌ Error eliminando carpeta fallback ${fallbackPath}:`,
+                  fallbackError
                 );
               }
-            }
-
-            // También intentar eliminar carpeta por admin_id/product_id si existe
-            const fallbackPath = `${product.admin_id}/${product.product_id}`;
-            const { ok: fallbackOk, error: fallbackError } =
-              await this.storageRepository.deleteFolder(fallbackPath);
-
-            if (!fallbackOk && fallbackError) {
-              console.error(
-                `❌ Error eliminando carpeta fallback ${fallbackPath}:`,
-                fallbackError
-              );
             }
           }
         }
       }
 
-      // 3. Eliminar el proyecto (CASCADE eliminará automáticamente productos, views, view_products)
+      // 4. Eliminar el proyecto (CASCADE eliminará automáticamente project_products, views, view_products)
       const { error: deleteError } = await this.supabaseClient
         .from("projects")
         .delete()
@@ -217,16 +311,25 @@ export class SupabaseProjectRepository implements IProjectRepository {
 
   // Método helper para mapear datos de DB a la entidad Product
   private mapToProduct(data: any): Product {
+    // Parsear weight correctamente, manejando string, number o null
+    let weight = 0;
+    if (data.weight !== null && data.weight !== undefined) {
+      if (typeof data.weight === "string") {
+        weight = parseFloat(data.weight);
+      } else if (typeof data.weight === "number") {
+        weight = data.weight;
+      }
+    }
+
     return {
       product_id: data.product_id,
       admin_id: data.admin_id,
-      project_id: data.project_id,
       name: data.name,
       description: data.description,
       cover_image: data.cover_image,
       constants: data.constants,
       path: data.path,
-      weight: parseFloat(data.weight || 0),
+      weight: weight,
       created_at: data.created_at,
       updated_at: data.updated_at,
     };

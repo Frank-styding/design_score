@@ -1,15 +1,18 @@
 import type { NextConfig } from "next";
 
+// Obtener hostnames desde variables de entorno
+const supabaseHostnames = [process.env.NEXT_PUBLIC_SUPABASE_HOSTNAME].filter(
+  Boolean
+) as string[];
+
 const nextConfig: NextConfig = {
   // Optimización de imágenes
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "emrgqbrqnqpbkrpruwts.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
-    ],
+    remotePatterns: supabaseHostnames.map((hostname) => ({
+      protocol: "https" as const,
+      hostname,
+      pathname: "/storage/v1/object/public/**",
+    })),
     formats: ["image/webp", "image/avif"],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
@@ -86,9 +89,13 @@ const nextConfig: NextConfig = {
               "default-src 'self'; " +
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; " +
               "style-src 'self' 'unsafe-inline'; " +
-              "img-src 'self' data: blob: https://esbgisvauvfledxkcrmu.supabase.co; " +
+              `img-src 'self' data: blob: ${supabaseHostnames
+                .map((h) => `https://${h}`)
+                .join(" ")}; ` +
               "font-src 'self' data:; " +
-              "connect-src 'self' https://esbgisvauvfledxkcrmu.supabase.co wss://esbgisvauvfledxkcrmu.supabase.co; " +
+              `connect-src 'self' ${supabaseHostnames
+                .map((h) => `https://${h} wss://${h}`)
+                .join(" ")}; ` +
               "frame-src 'self'; " +
               "object-src 'none'; " +
               "base-uri 'self'; " +

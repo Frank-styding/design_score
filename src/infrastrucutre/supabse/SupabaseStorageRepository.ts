@@ -126,16 +126,36 @@ export class SupabaseStorageRepository implements IStorageRepository {
     data: { fullPath: string; path: string } | null;
     error: string | null;
   }> {
-    const { data, error } = await this.supabaseClient.storage
-      .from("files")
-      .upload(filePath, file, {
-        upsert: true, // ✅ Sobrescribir si ya existe
-      });
-    if (error) {
-      return { ok: false, error: error.message, data: null };
-    }
+    try {
+      console.log(
+        `📤 [SupabaseStorageRepository] Subiendo archivo: ${filePath} (${(
+          file.size / 1024
+        ).toFixed(2)} KB)`
+      );
 
-    return { ok: true, error: null, data };
+      const { data, error } = await this.supabaseClient.storage
+        .from("files")
+        .upload(filePath, file, {
+          upsert: true, // ✅ Sobrescribir si ya existe
+        });
+
+      if (error) {
+        console.error(
+          `❌ [SupabaseStorageRepository] Error subiendo ${filePath}:`,
+          error
+        );
+        return { ok: false, error: error.message, data: null };
+      }
+
+      console.log(`✅ [SupabaseStorageRepository] Archivo subido: ${filePath}`);
+      return { ok: true, error: null, data };
+    } catch (err: any) {
+      console.error(
+        `❌ [SupabaseStorageRepository] Excepción subiendo ${filePath}:`,
+        err
+      );
+      return { ok: false, error: err.message, data: null };
+    }
   }
 
   async uploadBuffer(

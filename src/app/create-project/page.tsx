@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Button from "@/src/components/ui/Button";
-import FileUploadSection from "@/src/components/create-project/FileUploadSection";
+import ProductSelectionSection from "@/src/components/create-project/ProductSelectionSection";
 import ProjectInfoForm from "@/src/components/create-project/ProjectInfoForm";
 import ViewsConfigSection from "@/src/components/create-project/ViewsConfigSection";
 import LoadingModal from "@/src/components/LoadingModal";
@@ -22,8 +22,8 @@ export default function CreateProjectPage() {
     wizard.goToUpload();
   };
 
-  const handleFilesUploaded = (files: File[]) => {
-    projectCreation.handleFilesUploaded(files);
+  const handleProductsSelected = (productIds: string[]) => {
+    projectCreation.handleProductsSelected(productIds);
     wizard.goToViews();
   };
 
@@ -51,7 +51,7 @@ export default function CreateProjectPage() {
           <div className="w-16 h-0.5 bg-gray-300" />
           <StepIndicator
             step={2}
-            label="Archivos"
+            label="Productos"
             isActive={wizard.isOnUpload}
             isCompleted={wizard.hasCompletedUpload}
           />
@@ -74,16 +74,16 @@ export default function CreateProjectPage() {
           )}
 
           {wizard.isOnUpload && (
-            <FileUploadSection
-              initialFiles={projectCreation.uploadedFiles}
-              onFilesUploaded={handleFilesUploaded}
+            <ProductSelectionSection
+              initialSelectedProducts={projectCreation.selectedProductIds}
+              onProductsSelected={handleProductsSelected}
               onBack={() => wizard.goToInfo()}
             />
           )}
 
           {wizard.isOnViews && (
             <ViewsConfigSection
-              numProducts={projectCreation.uploadedFiles.length}
+              numProducts={projectCreation.selectedProductIds.length}
               views={projectCreation.views}
               onViewsChange={projectCreation.setViews}
               onBack={() => wizard.goToUpload()}

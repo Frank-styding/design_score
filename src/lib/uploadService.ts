@@ -133,8 +133,14 @@ export class ImageUploadService {
           uploadedCount++;
         }
 
-        // Reportar progreso
-        if (onProgress) {
+        // Reportar progreso solo cada 5 imágenes o en la última imagen
+        // Esto reduce la saturación del stream SSE
+        const shouldReport =
+          uploadedCount % 5 === 0 ||
+          uploadedCount === total ||
+          j === results.length - 1;
+
+        if (onProgress && shouldReport) {
           onProgress({
             uploadedCount,
             total,

@@ -1,6 +1,11 @@
-import { useState, useRef, DragEvent, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Button from "@/src/components/ui/Button";
-import SingleFileUploadModal from "@/src/components/SingleFileUploadModal";
+// import SingleFileUploadModal from "@/src/components/SingleFileUploadModal"; // COMENTADO: archivo eliminado durante refactorización
+// useRef y DragEvent comentados - eran para funcionalidad drag & drop deshabilitada
+
+/* interface FileUploadSectionProps {t { useState, useRef, DragEvent, useEffect } from "react";
+import Button from "@/src/components/ui/Button";
+// import SingleFileUploadModal from "@/src/components/SingleFileUploadModal"; // COMENTADO: archivo eliminado durante refactorización
 
 /* interface FileUploadSectionProps {
   initialFiles: File[];
@@ -19,8 +24,9 @@ interface FileUploadSectionProps {
   initialFiles?: File[];
   onFilesUploaded: (files: File[]) => void;
   onBack: () => void;
-  adminId?: string;
-  projectId?: string;
+  // adminId y projectId comentados - eran para SingleFileUploadModal que fue eliminado
+  // adminId?: string;
+  // projectId?: string;
 }
 
 export default function FileUploadSection({
@@ -28,19 +34,22 @@ export default function FileUploadSection({
   initialFiles = [],
   onFilesUploaded,
   onBack,
-  adminId = "",
-  projectId = "",
-}: FileUploadSectionProps) {
+}: // adminId y projectId comentados - eran para SingleFileUploadModal que fue eliminado
+// adminId = "",
+// projectId = "",
+FileUploadSectionProps) {
   const [files, setFiles] = useState<File[]>(initialFiles);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // isDragging, fileInputRef y handlers de drag comentados - eran para área drag & drop que está deshabilitada
+  // const [isDragging, setIsDragging] = useState(false);
+  // const [isModalOpen, setIsModalOpen] = useState(false); // COMENTADO: era para SingleFileUploadModal
+  // const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Actualizar archivos cuando cambien los datos iniciales
   useEffect(() => {
     setFiles(initialFiles);
   }, [initialFiles]);
 
+  /* HANDLERS DE DRAG & DROP COMENTADOS - área drag & drop deshabilitada
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);
@@ -65,8 +74,19 @@ export default function FileUploadSection({
       addFiles(selectedFiles);
     }
   };
+  */
 
-  const addFiles = (newFiles: File[]) => {
+  /* FUNCIÓN COMENTADA - era para SingleFileUploadModal que fue eliminado
+  const _handleSingleFileUpload = async (file: File, modelName: string) => {
+    // Aquí puedes procesar el archivo individual si es necesario
+    console.log("Subiendo archivo:", file.name, "con nombre:", modelName);
+    // Por ahora solo lo agregamos a la lista
+    setFiles((prev) => [...prev, file]);
+  };
+  */
+
+  /* FUNCIÓN COMENTADA - era para agregar archivos cuando se usaba drag & drop
+  const _addFiles = (newFiles: File[]) => {
     // Validar que solo sean archivos ZIP o RAR
     const validFiles = newFiles.filter((file) => {
       const fileName = file.name.toLowerCase();
@@ -81,6 +101,7 @@ export default function FileUploadSection({
 
     setFiles((prev) => [...prev, ...validFiles]);
   };
+  */
 
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
@@ -98,12 +119,14 @@ export default function FileUploadSection({
     onBack();
   };
 
-  const handleSingleFileUpload = async (file: File, modelName: string) => {
+  /* FUNCIÓN COMENTADA - era para SingleFileUploadModal que fue eliminado
+  const _handleSingleFileUpload2 = async (file: File, modelName: string) => {
     // Aquí puedes procesar el archivo individual si es necesario
     console.log("Subiendo archivo:", file.name, "con nombre:", modelName);
     // Por ahora solo lo agregamos a la lista
     setFiles((prev) => [...prev, file]);
   };
+  */
 
   return (
     <div className="space-y-6">
@@ -116,7 +139,8 @@ export default function FileUploadSection({
         </p>
       </div>
 
-      {/* Botón para subir un solo archivo */}
+      {/* Botón para subir un solo archivo - COMENTADO: SingleFileUploadModal eliminado durante refactorización */}
+      {/*
       <div className="flex justify-center">
         <button
           type="button"
@@ -127,6 +151,7 @@ export default function FileUploadSection({
           <span>Agregar Modelo Individual</span>
         </button>
       </div>
+      */}
 
       {/* Drag and Drop Area */}
       {/* <div
@@ -213,7 +238,8 @@ export default function FileUploadSection({
         </Button>
       </div>
 
-      {/* Modal para subir archivo individual */}
+      {/* Modal para subir archivo individual - COMENTADO: SingleFileUploadModal eliminado durante refactorización */}
+      {/* 
       <SingleFileUploadModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -221,11 +247,14 @@ export default function FileUploadSection({
         adminId={adminId}
         projectId={projectId}
       />
+      */}
     </div>
   );
 }
 
 // Iconos SVG
+// PlusIcon y UploadIcon comentados - eran para funcionalidad de SingleFileUploadModal que fue eliminado
+/* 
 function PlusIcon() {
   return (
     <svg
@@ -261,6 +290,7 @@ function UploadIcon() {
     </svg>
   );
 }
+*/
 
 function FileIcon() {
   return (

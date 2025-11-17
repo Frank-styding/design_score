@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useProjectData } from "./useProjectData";
 import { useProjectViewsManager } from "./useProjectViewsManager";
 import { useProductManager } from "./useProductManager";
@@ -24,6 +24,33 @@ export function useProjectEditor(projectId: string) {
 
   // Gestor de productos
   const productManager = useProductManager(projectId);
+
+  // Estado del modal de creación de vista
+  const [viewCreationModal, setViewCreationModal] = useState({
+    isOpen: false,
+    isLoading: false,
+    error: null as string | null,
+    success: false,
+  });
+
+  // Estado del modal de eliminación de vista
+  const [viewDeletionModal, setViewDeletionModal] = useState({
+    isOpen: false,
+    isLoading: false,
+    error: null as string | null,
+    success: false,
+    viewId: null as string | null,
+    viewName: "",
+  });
+
+  // Estado del modal de agregación de productos
+  const [productAdditionModal, setProductAdditionModal] = useState({
+    isOpen: false,
+    isLoading: false,
+    error: null as string | null,
+    success: false,
+    productsCount: 0,
+  });
 
   // Actualizar el editor de info cuando cambie el proyecto
   useEffect(() => {
@@ -60,31 +87,125 @@ export function useProjectEditor(projectId: string) {
 
   // Manejar agregar vista
   const handleAddView = async () => {
+    // Abrir modal en estado de carga
+    setViewCreationModal({
+      isOpen: true,
+      isLoading: true,
+      error: null,
+      success: false,
+    });
+
     try {
       await viewsManager.addView();
-      alert("✅ Vista creada correctamente");
+
+      // Mostrar éxito
+      setViewCreationModal({
+        isOpen: true,
+        isLoading: false,
+        error: null,
+        success: true,
+      });
     } catch (err: any) {
-      alert(`❌ Error: ${err.message}`);
+      // Mostrar error
+      setViewCreationModal({
+        isOpen: true,
+        isLoading: false,
+        error: err.message || "Error al crear vista",
+        success: false,
+      });
     }
   };
 
-  // Manejar eliminar vista
+  // Cerrar modal de creación de vista
+  const closeViewCreationModal = () => {
+    setViewCreationModal({
+      isOpen: false,
+      isLoading: false,
+      error: null,
+      success: false,
+    });
+  };
+
+  // Manejar eliminar vista (abrir modal de confirmación)
   const handleDeleteView = async (viewId: string) => {
-    const confirmed = confirm("¿Estás seguro de eliminar esta vista?");
-    if (!confirmed) return;
+    const view = viewsManager.views.find((v) => v.view_id === viewId);
+    const viewName = view?.name || `Vista ${parseInt(view?.idx || "0") + 1}`;
+
+    setViewDeletionModal({
+      isOpen: true,
+      isLoading: false,
+      error: null,
+      success: false,
+      viewId,
+      viewName,
+    });
+  };
+
+  // Confirmar eliminación de vista
+  const confirmDeleteView = async () => {
+    if (!viewDeletionModal.viewId) return;
+
+    setViewDeletionModal({
+      ...viewDeletionModal,
+      isLoading: true,
+      error: null,
+    });
 
     try {
-      await viewsManager.deleteView(viewId);
-      alert("✅ Vista eliminada correctamente");
+      await viewsManager.deleteView(viewDeletionModal.viewId);
+
+      setViewDeletionModal({
+        ...viewDeletionModal,
+        isLoading: false,
+        success: true,
+      });
     } catch (err: any) {
-      alert(`❌ Error: ${err.message}`);
+      setViewDeletionModal({
+        ...viewDeletionModal,
+        isLoading: false,
+        error: err.message || "Error al eliminar vista",
+      });
     }
+  };
+
+  // Cancelar eliminación de vista
+  const cancelDeleteView = () => {
+    setViewDeletionModal({
+      isOpen: false,
+      isLoading: false,
+      error: null,
+      success: false,
+      viewId: null,
+      viewName: "",
+    });
+  };
+
+  // Cerrar modal de eliminación
+  const closeViewDeletionModal = () => {
+    setViewDeletionModal({
+      isOpen: false,
+      isLoading: false,
+      error: null,
+      success: false,
+      viewId: null,
+      viewName: "",
+    });
   };
 
   // Manejar agregar producto
-  const handleAddProduct = async () => {
+  const handleAddProduct = async (productIds: string[]) => {
+    const productsCount = productIds.length;
+
+    setProductAdditionModal({
+      isOpen: true,
+      isLoading: true,
+      error: null,
+      success: false,
+      productsCount,
+    });
+
     try {
-      await productManager.addProduct();
+      await productManager.addProduct(productIds);
 
       // Recargar proyecto completo
       const updatedProject = await getProjectByIdWithProductsAction(projectId);
@@ -93,21 +214,44 @@ export function useProjectEditor(projectId: string) {
         await viewsManager.reloadViewProducts();
       }
 
-      alert("✅ Producto agregado correctamente");
+      setProductAdditionModal({
+        isOpen: true,
+        isLoading: false,
+        error: null,
+        success: true,
+        productsCount,
+      });
     } catch (err: any) {
-      alert(`❌ Error: ${err.message}`);
+      setProductAdditionModal({
+        isOpen: true,
+        isLoading: false,
+        error: err.message || "Error al agregar productos",
+        success: false,
+        productsCount,
+      });
     }
+  };
+
+  // Cerrar modal de agregación de productos
+  const closeProductAdditionModal = () => {
+    setProductAdditionModal({
+      isOpen: false,
+      isLoading: false,
+      error: null,
+      success: false,
+      productsCount: 0,
+    });
   };
 
   // Manejar eliminar producto
   const handleDeleteProduct = async (productId: string) => {
     const confirmed = confirm(
-      "¿Estás seguro de eliminar este producto? Esto también lo eliminará de todas las vistas."
+      "¿Estás seguro de remover este producto del proyecto?"
     );
     if (!confirmed) return;
 
     try {
-      await productManager.deleteProduct(productId);
+      await productManager.removeProduct(productId);
 
       // Recargar proyecto completo
       const updatedProject = await getProjectByIdWithProductsAction(projectId);
@@ -116,7 +260,7 @@ export function useProjectEditor(projectId: string) {
         await viewsManager.reloadViewProducts();
       }
 
-      alert("✅ Producto eliminado correctamente");
+      alert("✅ Producto removido del proyecto correctamente");
     } catch (err: any) {
       alert(`❌ Error: ${err.message}`);
     }
@@ -144,6 +288,13 @@ export function useProjectEditor(projectId: string) {
     handleToggleProductInView,
     handleAddView,
     handleDeleteView,
+    viewCreationModal,
+    closeViewCreationModal,
+    viewDeletionModal,
+    confirmDeleteView,
+    cancelDeleteView,
+    closeViewDeletionModal,
+    updateViewName: viewsManager.updateViewName,
 
     // Productos
     isAddingProduct: productManager.isAddingProduct,
@@ -154,7 +305,11 @@ export function useProjectEditor(projectId: string) {
     selectedProductIndex: productManager.selectedProductIndex,
     setSelectedProductIndex: productManager.setSelectedProductIndex,
     isSavingProduct: productManager.isSaving,
+    selectedProductsToAdd: productManager.selectedProductsToAdd,
+    setSelectedProductsToAdd: productManager.setSelectedProductsToAdd,
     handleAddProduct,
     handleDeleteProduct,
+    productAdditionModal,
+    closeProductAdditionModal,
   };
 }

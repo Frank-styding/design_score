@@ -1,7 +1,8 @@
 import { useState } from "react";
 import {
-  createProductAction,
   deleteProductAction,
+  addProductToProjectAction,
+  removeProductFromProjectAction,
 } from "@/src/app/actions/productActions";
 
 /**
@@ -12,40 +13,69 @@ export function useProductManager(projectId: string) {
   const [selectedProductIndex, setSelectedProductIndex] = useState(-1);
   const [newProductName, setNewProductName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedProductsToAdd, setSelectedProductsToAdd] = useState<string[]>(
+    []
+  );
 
   const openAddProductModal = () => {
     setIsAddingProduct(true);
     setNewProductName("");
+    setSelectedProductsToAdd([]);
   };
 
   const closeAddProductModal = () => {
     setIsAddingProduct(false);
     setNewProductName("");
+    setSelectedProductsToAdd([]);
   };
 
-  const addProduct = async () => {
-    if (!newProductName.trim()) {
-      throw new Error("El nombre del producto es obligatorio");
-    }
-
+  const addProduct = async (productIds?: string[]) => {
     try {
       setIsSaving(true);
 
-      const result = await createProductAction({
-        admin_id: "",
-        project_id: projectId,
-        name: newProductName.trim(),
-        weight: 0,
-      } as any);
+      // Usar los productIds pasados o los del estado
+      const productsToAdd = productIds || selectedProductsToAdd;
 
-      if (!result) {
-        throw new Error("Error al crear producto");
+      // Agregar los productos seleccionados al proyecto
+      if (productsToAdd.length > 0) {
+        const results = await Promise.all(
+          productsToAdd.map((productId) =>
+            addProductToProjectAction(productId, projectId)
+          )
+        );
+
+        const hasErrors = results.some((r) => !r.ok);
+        if (hasErrors) {
+          throw new Error("Error al asociar algunos productos al proyecto");
+        }
       }
 
       closeAddProductModal();
+      return productsToAdd.length; // Retornar el número de productos agregados
+    } catch (err: any) {
+      console.error("Error agregando productos:", err);
+      throw err;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const removeProduct = async (productId: string) => {
+    try {
+      setIsSaving(true);
+
+      const result = await removeProductFromProjectAction(productId, projectId);
+
+      if (!result.ok) {
+        throw new Error(
+          result.error || "Error al remover producto del proyecto"
+        );
+      }
+
+      setSelectedProductIndex(-1);
       return result;
     } catch (err: any) {
-      console.error("Error agregando producto:", err);
+      console.error("Error removiendo producto del proyecto:", err);
       throw err;
     } finally {
       setIsSaving(false);
@@ -79,6 +109,8 @@ export function useProductManager(projectId: string) {
     setNewProductName,
     openAddProductModal,
     closeAddProductModal,
+    selectedProductsToAdd,
+    setSelectedProductsToAdd,
 
     // Producto seleccionado para vista 3D
     selectedProductIndex,
@@ -87,6 +119,7 @@ export function useProductManager(projectId: string) {
     // Acciones
     addProduct,
     deleteProduct,
+    removeProduct,
 
     // Estado
     isSaving,

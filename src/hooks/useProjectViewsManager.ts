@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   getViewsByProjectIdAction,
   getProductsByViewIdAction,
   assignProductsToViewAction,
   deleteViewAction,
   createViewAction,
+  updateViewAction,
 } from "@/src/app/actions/viewActions";
 import { View } from "@/src/domain/entities/View";
 
@@ -18,7 +19,7 @@ export function useProjectViewsManager(projectId: string) {
   );
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadViews = async () => {
+  const loadViews = useCallback(async () => {
     try {
       setIsLoading(true);
 
@@ -26,14 +27,26 @@ export function useProjectViewsManager(projectId: string) {
       const viewsData = await getViewsByProjectIdAction(projectId);
       setViews(viewsData);
 
-      // Cargar productos de cada vista
+      // Cargar productos de todas las vistas en paralelo (optimización)
       const productsMap: Record<string, string[]> = {};
-      for (const view of viewsData) {
+      const productsPromises = viewsData.map(async (view) => {
         if (view.view_id) {
           const products = await getProductsByViewIdAction(view.view_id);
-          productsMap[view.view_id] = products.map((p) => p.product_id!);
+          return {
+            viewId: view.view_id,
+            productIds: products.map((p) => p.product_id!),
+          };
         }
-      }
+        return null;
+      });
+
+      const results = await Promise.all(productsPromises);
+      results.forEach((result) => {
+        if (result) {
+          productsMap[result.viewId] = result.productIds;
+        }
+      });
+
       setViewProducts(productsMap);
     } catch (err: any) {
       console.error("Error cargando vistas:", err);
@@ -41,13 +54,13 @@ export function useProjectViewsManager(projectId: string) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     if (projectId) {
       loadViews();
     }
-  }, [projectId]);
+  }, [projectId, loadViews]);
 
   const toggleProductInView = async (viewId: string, productId: string) => {
     const currentProducts = viewProducts[viewId] || [];
@@ -57,15 +70,21 @@ export function useProjectViewsManager(projectId: string) {
       ? currentProducts.filter((id) => id !== productId)
       : [...currentProducts, productId];
 
+    // Actualización optimista - actualizar UI inmediatamente
+    setViewProducts({
+      ...viewProducts,
+      [viewId]: newProducts,
+    });
+
     try {
       const result = await assignProductsToViewAction(viewId, newProducts);
 
-      if (result.ok) {
+      if (!result.ok) {
+        // Revertir cambio optimista si falla
         setViewProducts({
           ...viewProducts,
-          [viewId]: newProducts,
+          [viewId]: currentProducts,
         });
-      } else {
         throw new Error(result.error || "Error al actualizar vista");
       }
     } catch (err: any) {
@@ -76,10 +95,13 @@ export function useProjectViewsManager(projectId: string) {
 
   const addView = async () => {
     try {
-      const newIdx = views.length.toString();
-      const result = await createViewAction(projectId, newIdx);
+      // Generar idx único basado en timestamp para evitar conflictos
+      const newIdx = Date.now().toString();
+      const defaultName = "Nueva vista";
+      const result = await createViewAction(projectId, newIdx, defaultName);
 
       if (result.ok && result.view) {
+        // Actualización directa después de creación exitosa
         setViews([...views, result.view]);
         setViewProducts({
           ...viewProducts,
@@ -113,14 +135,42 @@ export function useProjectViewsManager(projectId: string) {
     }
   };
 
+  const updateViewName = async (viewId: string, newName: string) => {
+    try {
+      const result = await updateViewAction(viewId, { name: newName });
+
+      if (result.ok && result.view) {
+        setViews(views.map((v) => (v.view_id === viewId ? result.view! : v)));
+      } else {
+        throw new Error(result.error || "Error al actualizar nombre de vista");
+      }
+    } catch (err: any) {
+      console.error("Error actualizando nombre de vista:", err);
+      throw err;
+    }
+  };
+
   const reloadViewProducts = async () => {
-    const productsMap: Record<string, string[]> = {};
-    for (const view of views) {
+    // Cargar productos de todas las vistas en paralelo
+    const productsPromises = views.map(async (view) => {
       if (view.view_id) {
         const products = await getProductsByViewIdAction(view.view_id);
-        productsMap[view.view_id] = products.map((p) => p.product_id!);
+        return {
+          viewId: view.view_id,
+          productIds: products.map((p) => p.product_id!),
+        };
       }
-    }
+      return null;
+    });
+
+    const results = await Promise.all(productsPromises);
+    const productsMap: Record<string, string[]> = {};
+    results.forEach((result) => {
+      if (result) {
+        productsMap[result.viewId] = result.productIds;
+      }
+    });
+
     setViewProducts(productsMap);
   };
 
@@ -132,6 +182,7 @@ export function useProjectViewsManager(projectId: string) {
     toggleProductInView,
     addView,
     deleteView,
+    updateViewName,
     reloadViewProducts,
   };
 }

@@ -72,8 +72,9 @@ export async function POST(request: NextRequest) {
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
+      "X-Accel-Buffering": "no", // Deshabilitar buffering en nginx/proxies
     },
   });
 }
@@ -216,8 +217,10 @@ async function handleUploadStream(
   sse.sendProgress("upload-complete", "Archivo recibido");
 
   // 1. Procesar archivo ZIP
+  /*   console.log("🔄 [upload] Iniciando extracción de archivos..."); */
   sse.sendProgress("extracting", "Extrayendo archivos...");
   const { constants, imageFiles } = await processZipFile(buffer, false);
+  /*   console.log(`✅ [upload] ${imageFiles.size} imágenes extraídas`); */
   sse.sendProgress("extracted", `${imageFiles.size} imágenes extraídas`, {
     imageCount: imageFiles.size,
   });
@@ -232,6 +235,7 @@ async function handleUploadStream(
  */
   // 3. Subir imágenes con progreso
   const storagePath = `${admin_id}/${product_id}`;
+  /*   console.log(`🔄 [upload] Iniciando subida de ${imageFiles.size} imágenes...`); */
   sse.sendProgress(
     "uploading-images",
     "Iniciando subida de imágenes a la base de datos...",
@@ -245,6 +249,9 @@ async function handleUploadStream(
     imageFiles,
     storagePath,
     (progress) => {
+      /*       console.log(
+        `📊 [upload] Progreso: ${progress.uploadedCount}/${progress.total} - ${progress.percentage}%`
+      ); */
       sse.sendProgress("uploading-images", progress.message, {
         fileName: progress.currentFileName,
         uploaded: progress.uploadedCount,
@@ -254,6 +261,9 @@ async function handleUploadStream(
     }
   );
 
+  /*   console.log(
+    `✅ [upload] Todas las imágenes subidas: ${uploadResult.uploadedImages.length}/${imageFiles.size}`
+  ); */
   sse.sendProgress("images-uploaded", "Todas las imágenes subidas", {
     uploaded: uploadResult.uploadedImages.length,
     total: imageFiles.size,

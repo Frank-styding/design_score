@@ -14,7 +14,7 @@ export function useDashboard() {
    * Maneja el evento de reproducir/visualizar un proyecto
    */
   const handlePlay = (projectId: string) => {
-    console.log("Play project:", projectId);
+    /*   console.log("Play project:", projectId); */
     navigation.navigateToPlay(projectId);
   };
 
@@ -22,7 +22,7 @@ export function useDashboard() {
    * Maneja el evento de editar un proyecto
    */
   const handleEdit = (projectId: string) => {
-    console.log("Edit project:", projectId);
+    /*  console.log("Edit project:", projectId); */
     navigation.navigateToEdit(projectId);
   };
 

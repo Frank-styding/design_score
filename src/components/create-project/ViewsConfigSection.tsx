@@ -30,7 +30,7 @@ export default function ViewsConfigSection({
 
   const addView = () => {
     const newView: View = {
-      name: `Vista ${views.length + 1}`,
+      name: "Nueva vista",
       products: Array(numProducts).fill(false),
     };
     onViewsChange([...views, newView]);
@@ -145,31 +145,21 @@ export default function ViewsConfigSection({
                               saveViewName(viewIndex);
                             }
                           }}
+                          onBlur={() => saveViewName(viewIndex)}
+                          autoFocus
                         />
-                        <button
-                          onClick={() => saveViewName(viewIndex)}
-                          className="text-green-600 hover:text-green-700 text-sm"
-                        >
-                          ✓
-                        </button>
-                        <button
-                          onClick={() => setEditingViewIndex(null)}
-                          className="text-red-600 hover:text-red-700 text-sm"
-                        >
-                          ✗
-                        </button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between">
+                      <div
+                        className="flex items-center justify-between cursor-pointer"
+                        onClick={() => startEditingView(viewIndex)}
+                      >
                         <span className="text-gray-800 font-medium">
                           {view.name}
                         </span>
-                        <button
-                          onClick={() => startEditingView(viewIndex)}
-                          className="text-gray-400 hover:text-gray-600 text-xs"
-                        >
+                        <span className="text-gray-400 hover:text-gray-600 text-xs">
                           ✎
-                        </button>
+                        </span>
                       </div>
                     )}
                   </td>

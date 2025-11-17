@@ -18,6 +18,7 @@ export interface KeyShotXRConfig {
   vStartIndex?: number;
   minZoom?: number;
   maxZoom?: number;
+  initialZoom?: number;
   rotationDamping?: number;
   downScaleToBrowser?: boolean;
   addDownScaleGUIButton?: boolean;
@@ -28,7 +29,7 @@ export interface KeyShotXRConfig {
   allowFullscreen?: boolean;
   uReverse?: boolean;
   vReverse?: boolean;
-  hotspots?: Record<string, any>;
+  hotspots?: Record<string, unknown>;
   isIBooksWidget?: boolean;
 }
 
@@ -64,7 +65,7 @@ interface KeyShotXRProps {
   preloadImages?: boolean;
 }
 
-function preloadImages(urls: string[]): Promise<void[]> {
+function prefetchImages(urls: string[]): Promise<void[]> {
   return Promise.all(
     urls.map(
       (url) =>
@@ -118,8 +119,8 @@ function KeyShotXRViewer({
       return {
         nameOfDiv: viewerId || config.nameOfDiv || "KeyShotXR",
         folderName: baseUrl || "",
-        viewPortWidth: config.viewPortWidth || 1024,
-        viewPortHeight: config.viewPortHeight || 575,
+        viewPortWidth: config.viewPortWidth, // Usar resolución 2K por defecto para zoom sin cortes
+        viewPortHeight: config.viewPortHeight,
         backgroundColor: "#FFFFFF",
         uCount: config.uCount || 36,
         vCount: config.vCount || 5,
@@ -141,6 +142,8 @@ function KeyShotXRViewer({
         // ZOOM PERSONALIZADO: Rango ampliado para que sea más obvio
         minZoom: 0.5,
         maxZoom: 2.0,
+        initialZoom:
+          config.initialZoom !== undefined ? config.initialZoom : 1.0,
         rotationDamping:
           config.rotationDamping !== undefined ? config.rotationDamping : 0.96,
         downScaleToBrowser: false, // Deshabilitado para permitir zoom
@@ -171,8 +174,8 @@ function KeyShotXRViewer({
       return {
         nameOfDiv: viewerId || containerId || "KeyShotXR",
         folderName: baseUrl || "",
-        viewPortWidth: width || 1024,
-        viewPortHeight: height || 575,
+        viewPortWidth: width, // Usar resolución 2K por defecto para zoom sin cortes
+        viewPortHeight: height,
         backgroundColor: backgroundColor || "#000000",
         uCount: cols,
         vCount: rws,
@@ -185,6 +188,7 @@ function KeyShotXRViewer({
         // ZOOM PERSONALIZADO: Rango ampliado para que sea más obvio
         minZoom: 0.5,
         maxZoom: 2.0,
+        initialZoom: 1.0,
         rotationDamping: 0.96,
         downScaleToBrowser: false, // Deshabilitado para permitir zoom
         addDownScaleGUIButton: false,
@@ -250,18 +254,57 @@ function KeyShotXRViewer({
       return;
     }
 
-    const {
-      base,
-      startCol,
-      startRow,
-      initialFrame,
-      origin,
-      config: cfg,
-    } = normalized;
+    const { base, initialFrame, origin, config: cfg } = normalized;
+
+    // Función para calcular dimensiones dinámicas del viewport
+    const calculateDynamicViewport = () => {
+      // eslint-disable-next-line react-hooks/immutability
+      if (!iframeRef.current) return cfg;
+
+      const { width, height } = iframeRef.current.getBoundingClientRect();
+
+      const factor = width / (cfg.viewPortWidth || width);
+
+      if (factor > 1.5) {
+        cfg.initialZoom *= factor - 1;
+      }
+
+      return {
+        ...cfg,
+        viewPortWidth: Math.max(
+          Math.ceil((cfg.viewPortWidth || width) * factor),
+          cfg.viewPortWidth || width
+        ),
+        viewPortHeight: Math.max(
+          Math.ceil((cfg.viewPortHeight || height) * factor),
+          cfg.viewPortHeight || height
+        ),
+      };
+    };
+
+    // Usar dimensiones dinámicas
+    const dynamicCfg = calculateDynamicViewport();
+
+    // Preload de imágenes si la prop está activada (minimizar para producción)
+    if (preloadImages) {
+      const urls: string[] = [];
+      for (let r = 0; r < (cfg.vCount || 1); r++) {
+        for (let c = 0; c < (cfg.uCount || 1); c++) {
+          urls.push(`${base}/${r}_${c}.${cfg.imageExtension}`);
+        }
+      }
+      // Preload inicial (no bloquear la renderización)
+      prefetchImages(urls).catch(() => {
+        /* no-op */
+      });
+    }
 
     // Sanitizar el nameOfDiv para usarlo como nombre de variable JavaScript
     // Reemplazar guiones y otros caracteres no válidos con guiones bajos
-    const sanitizedVarName = cfg.nameOfDiv.replace(/[^a-zA-Z0-9_]/g, "_");
+    const _sanitizedVarName = dynamicCfg.nameOfDiv.replace(
+      /[^a-zA-Z0-9_]/g,
+      "_"
+    );
 
     // Preconexión al host para reducir el RTT inicial
     const preconnect = origin
@@ -288,70 +331,86 @@ function KeyShotXRViewer({
               padding: 0;
               box-sizing: border-box;
             }
-            html, body { 
+            html, body {
               -ms-touch-action: none;
               margin: 0;
               padding: 0;
               width: 100%;
               height: 100%;
               overflow: hidden;
-              background: ${cfg.backgroundColor};
-              display: flex;
-              align-items: center;
-              justify-content: center;
+              background: ${dynamicCfg.backgroundColor};
             }
-            body > * {
-              width: 100%;
-              height: 100%;
-            }
-            #${cfg.nameOfDiv} {
+            #${dynamicCfg.nameOfDiv} {
               width: 100%;
               height: 100%;
               position: relative;
               overflow: hidden;
-              background: ${cfg.backgroundColor};
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            }
-           
-          </style>
+              background: ${dynamicCfg.backgroundColor};
+            }          </style>
           <!-- Carga diferida del script y arranque con DOMContentLoaded para no esperar a window.onload -->
           <script src="/js/KeyShotXR.js" defer></script>
           <script defer>
             function initKeyShotXR() {
               var keyshotXR = new window.keyshotXR(
-                "${cfg.nameOfDiv}",
+                "${dynamicCfg.nameOfDiv}",
                 "${base}",
-                ${cfg.viewPortWidth},
-                ${cfg.viewPortHeight},
-                "${cfg.backgroundColor}",
-                ${cfg.uCount},
-                ${cfg.vCount},
-                ${cfg.uWrap},
-                ${cfg.vWrap},
-                ${cfg.uMouseSensitivity},
-                ${cfg.vMouseSensitivity},
-                ${cfg.uStartIndex},
-                ${cfg.vStartIndex},
-                ${cfg.minZoom},
-                ${cfg.maxZoom},
-                ${cfg.rotationDamping},
-                ${cfg.downScaleToBrowser},
-                ${cfg.addDownScaleGUIButton},
-                ${cfg.downloadOnInteraction},
-                "${cfg.imageExtension}",
-                ${cfg.showLoading},
-                "${cfg.loadingIcon}",
-                ${cfg.allowFullscreen},
-                ${cfg.uReverse},
-                ${cfg.vReverse},
-                ${JSON.stringify(cfg.hotspots)},
-                ${cfg.isIBooksWidget}
+                ${dynamicCfg.viewPortWidth},
+                ${dynamicCfg.viewPortHeight},
+                "${dynamicCfg.backgroundColor}",
+                ${dynamicCfg.uCount},
+                ${dynamicCfg.vCount},
+                ${dynamicCfg.uWrap},
+                ${dynamicCfg.vWrap},
+                ${dynamicCfg.uMouseSensitivity},
+                ${dynamicCfg.vMouseSensitivity},
+                ${dynamicCfg.uStartIndex},
+                ${dynamicCfg.vStartIndex},
+                ${dynamicCfg.minZoom},
+                ${dynamicCfg.maxZoom},
+                ${dynamicCfg.rotationDamping},
+                ${dynamicCfg.downScaleToBrowser},
+                ${dynamicCfg.addDownScaleGUIButton},
+                ${dynamicCfg.downloadOnInteraction},
+                "${dynamicCfg.imageExtension}",
+                ${dynamicCfg.showLoading},
+                "${dynamicCfg.loadingIcon}",
+                ${dynamicCfg.allowFullscreen},
+                ${dynamicCfg.uReverse},
+                ${dynamicCfg.vReverse},
+                ${JSON.stringify(dynamicCfg.hotspots)},
+                ${dynamicCfg.isIBooksWidget}
               );
 
               // Exponer la instancia globalmente para sincronización
               window.keyshotXRInstance = keyshotXR;
+
+              // Ajustar el viewport para que coincida con el tamaño del contenedor
+              function adjustViewportToContainer() {
+                var el = document.getElementById("${dynamicCfg.nameOfDiv}");
+                if (!el || !keyshotXR) return;
+                var rect = el.getBoundingClientRect();
+                var maxZoom = ${dynamicCfg.maxZoom ?? 1};
+                var newW = Math.ceil(rect.width * maxZoom);
+                var newH = Math.ceil(rect.height * maxZoom);
+                try {
+                  keyshotXR.Ua(newW, newH);
+                } catch(e) {
+                  // noop
+                }
+              }
+              adjustViewportToContainer();
+              window.addEventListener("resize", adjustViewportToContainer);
+
+                // Aplicar zoom inicial, respetando minZoom / maxZoom
+                try {
+                  var initialZoom = ${dynamicCfg.initialZoom ?? 1};
+                  var clampedZoom = Math.max(${dynamicCfg.minZoom}, Math.min(${
+      dynamicCfg.maxZoom
+    }, initialZoom));
+                  keyshotXR.T(clampedZoom);
+                } catch(e) {
+                  // noop
+                }
 
               // Sobrescribir el método de progreso para reportar al componente React
               var originalSaMethod = keyshotXR.Sa;
@@ -360,7 +419,7 @@ function KeyShotXRViewer({
                 // Comunicar el progreso al componente padre
                 window.parent.postMessage({
                   type: 'keyshot-progress',
-                  containerId: '${cfg.nameOfDiv}',
+                  containerId: '${dynamicCfg.nameOfDiv}',
                   progress: progress * 100
                 }, '*');
               };
@@ -375,7 +434,9 @@ function KeyShotXRViewer({
                 originalRaMethod.call(keyshotXR);
                 
                 // Obtener el contenedor de KeyShot
-                var container = document.getElementById("${cfg.nameOfDiv}");
+                var container = document.getElementById("${
+                  dynamicCfg.nameOfDiv
+                }");
                 if (container) {
                   // Función para enviar eventos de mouse
                   function sendMouseEvent(eventType, e) {
@@ -388,7 +449,7 @@ function KeyShotXRViewer({
                     window.parent.postMessage({
                       type: "keyshot-pointer-event",
                       eventType: eventType,
-                      containerId: "${cfg.nameOfDiv}",
+                      containerId: "${dynamicCfg.nameOfDiv}",
                       relativeX: relativeX,
                       relativeY: relativeY,
                       buttons: e.buttons,
@@ -413,7 +474,7 @@ function KeyShotXRViewer({
                 // Notificar que la carga está completa
                 window.parent.postMessage({
                   type: 'keyshot-loaded',
-                  containerId: '${cfg.nameOfDiv}'
+                  containerId: '${dynamicCfg.nameOfDiv}'
                 }, '*');
               };
 
@@ -433,7 +494,7 @@ function KeyShotXRViewer({
                 // Recibir eventos de mouse sincronizados de otro visor
                 if (data.type === "keyshot-pointer-event" && syncEnabled) {
                   // No sincronizar si el mensaje viene de este mismo contenedor
-                  if (data.containerId === "${cfg.nameOfDiv}") {
+                  if (data.containerId === "${dynamicCfg.nameOfDiv}") {
                     return;
                   }
                   
@@ -447,7 +508,9 @@ function KeyShotXRViewer({
                   isReceivingSync = true;
                   
                   // Obtener el contenedor principal (viewwindow)
-                  var container = document.getElementById("${cfg.nameOfDiv}");
+                  var container = document.getElementById("${
+                    dynamicCfg.nameOfDiv
+                  }");
                   if (container) {
                     // Encontrar el viewwindow div (primer hijo del contenedor)
                     var viewwindow = container.querySelector('#viewwindow');
@@ -519,7 +582,7 @@ function KeyShotXRViewer({
                 s.onerror = function() {
                   window.parent.postMessage({
                     type: 'keyshot-error',
-                    containerId: '${cfg.nameOfDiv}',
+                    containerId: '${dynamicCfg.nameOfDiv}',
                     error: 'Failed to load KeyShotXR.js'
                   }, '*');
                 };
@@ -528,8 +591,8 @@ function KeyShotXRViewer({
             });
           </script>
         </head>
-        <body oncontextmenu="return false;" style="display:flex; align-items:center; justify-content:center; width:100%; height:100%; margin:0; padding:0;">
-          <div id="${cfg.nameOfDiv}"></div>
+        <body oncontextmenu="return false;" style="width:100%; height:100%; margin:0; padding:0;">
+          <div id="${dynamicCfg.nameOfDiv}"></div>
         </body>
       </html>
     `;
@@ -545,17 +608,17 @@ function KeyShotXRViewer({
     const handleMessage = (event: MessageEvent) => {
       if (
         event.data.type === "keyshot-loaded" &&
-        event.data.containerId === cfg.nameOfDiv
+        event.data.containerId === dynamicCfg.nameOfDiv
       ) {
         onLoad?.();
       } else if (
         event.data.type === "keyshot-progress" &&
-        event.data.containerId === cfg.nameOfDiv
+        event.data.containerId === dynamicCfg.nameOfDiv
       ) {
         onProgress?.(Math.round(event.data.progress));
       } else if (
         event.data.type === "keyshot-error" &&
-        event.data.containerId === cfg.nameOfDiv
+        event.data.containerId === dynamicCfg.nameOfDiv
       ) {
         onError?.(event.data.error);
       }
@@ -577,9 +640,6 @@ function KeyShotXRViewer({
           height: "100%",
           position: "relative",
           overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
           ...style,
         } as React.CSSProperties
       }
@@ -589,7 +649,6 @@ function KeyShotXRViewer({
         title="KeyShot XR Viewer"
         style={
           {
-            display: "flex",
             width: "100%",
             height: "100%",
             border: "none",
@@ -618,6 +677,7 @@ function arePropsEqual(
         "uCount",
         "vCount",
         "nameOfDiv",
+        "initialZoom",
       ];
 
       for (const key of criticalKeys) {

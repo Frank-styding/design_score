@@ -23,10 +23,60 @@ export default function EditProjectPage() {
 
   if (editor.isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-gray-800 mb-4"></div>
-          <p className="text-gray-600">Cargando proyecto...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
+        <div className="bg-white rounded-lg shadow-xl p-12 max-w-md w-full">
+          <div className="text-center">
+            {/* Spinner animado */}
+            <div className="relative mx-auto mb-8 w-24 h-24">
+              <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-gray-800 border-t-transparent animate-spin"></div>
+              <div
+                className="absolute inset-3 rounded-full border-4 border-gray-400 border-b-transparent animate-spin"
+                style={{
+                  animationDirection: "reverse",
+                  animationDuration: "1.5s",
+                }}
+              ></div>
+            </div>
+
+            {/* Texto de carga */}
+            <h2 className="text-2xl font-light text-gray-800 mb-3">
+              Cargando Proyecto
+            </h2>
+            <p className="text-gray-600 mb-4">
+              Preparando la información del proyecto...
+            </p>
+
+            {/* Barra de progreso indeterminada */}
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-gray-800 rounded-full animate-pulse"
+                style={{ width: "60%" }}
+              ></div>
+            </div>
+
+            {/* Indicadores de estado */}
+            <div className="mt-6 space-y-2 text-left">
+              <div className="flex items-center text-sm text-gray-600">
+                <div className="w-2 h-2 bg-gray-800 rounded-full mr-2 animate-pulse"></div>
+                Cargando información del proyecto
+              </div>
+              <div className="flex items-center text-sm text-gray-600">
+                <div
+                  className="w-2 h-2 bg-gray-800 rounded-full mr-2 animate-pulse"
+                  style={{ animationDelay: "0.2s" }}
+                ></div>
+                Obteniendo productos
+              </div>
+              <div className="flex items-center text-sm text-gray-600">
+                <div
+                  className="w-2 h-2 bg-gray-800 rounded-full mr-2 animate-pulse"
+                  style={{ animationDelay: "0.4s" }}
+                ></div>
+                Preparando vistas
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -52,10 +102,10 @@ export default function EditProjectPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-light text-gray-800 mb-2">
+          <h1 className="text-3xl font-light text-gray-800 mb-2">
             Editar Proyecto
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm">
             Modifica la información, vistas y productos de tu proyecto
           </p>
         </div>
@@ -119,6 +169,13 @@ export default function EditProjectPage() {
               onToggleProduct={editor.handleToggleProductInView}
               onAddView={editor.handleAddView}
               onDeleteView={editor.handleDeleteView}
+              onUpdateViewName={editor.updateViewName}
+              viewCreationModal={editor.viewCreationModal}
+              onCloseViewCreationModal={editor.closeViewCreationModal}
+              viewDeletionModal={editor.viewDeletionModal}
+              onConfirmDeleteView={editor.confirmDeleteView}
+              onCancelDeleteView={editor.cancelDeleteView}
+              onCloseViewDeletionModal={editor.closeViewDeletionModal}
             />
           )}
 
@@ -128,14 +185,16 @@ export default function EditProjectPage() {
               products={editor.products}
               selectedProductIndex={editor.selectedProductIndex}
               isAddingProduct={editor.isAddingProduct}
-              newProductName={editor.newProductName}
+              selectedProductsToAdd={editor.selectedProductsToAdd}
               onSelectProduct={editor.setSelectedProductIndex}
               onAddProduct={editor.handleAddProduct}
               onDeleteProduct={editor.handleDeleteProduct}
               onOpenAddProductModal={editor.openAddProductModal}
               onCloseAddProductModal={editor.closeAddProductModal}
-              onNewProductNameChange={editor.setNewProductName}
+              onSelectedProductsChange={editor.setSelectedProductsToAdd}
               isSaving={editor.isSavingProduct}
+              productAdditionModal={editor.productAdditionModal}
+              onCloseProductAdditionModal={editor.closeProductAdditionModal}
             />
           )}
         </div>

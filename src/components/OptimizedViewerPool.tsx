@@ -4,6 +4,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import KeyShotXRViewer from "@/src/components/KeyShotXRViewer";
 import SyncToggle from "@/src/components/SyncToggle";
 import { Product } from "@/src/domain/entities/Product";
+import { getViewerBaseUrl } from "@/src/lib/getViewerBaseUrl";
 
 interface OptimizedViewerPoolProps {
   currentProducts: Product[];
@@ -11,7 +12,6 @@ interface OptimizedViewerPoolProps {
   currentViewIndex: number;
   gridCols: 1 | 2 | 3 | 4;
 }
-
 export default function OptimizedViewerPool({
   currentProducts,
   nextProducts = [],
@@ -200,16 +200,6 @@ export default function OptimizedViewerPool({
       : "grid-cols-2 lg:grid-cols-4";
 
   // Utilidad para obtener la URL base del visor
-  const cdnBaseUrl = process.env.NEXT_PUBLIC_CDN_BASE_URL;
-  function getViewerBaseUrl(product: Product): string | undefined {
-    const userId = product.user_id;
-    const productId = product.product_id;
-    if (cdnBaseUrl && userId && productId) {
-      return `${cdnBaseUrl}/${userId}/${productId}`;
-    }
-    // Si falta user_id o product_id, usar product.path como fallback
-    return product.path;
-  }
 
   return (
     <>
@@ -224,7 +214,7 @@ export default function OptimizedViewerPool({
           return (
             <div
               key={`container-${product.product_id}-${currentViewIndex}`}
-              className={`relative w-full h-full flex items-center justify-center rounded-lg overflow-hidden transition-all duration-300 ${
+              className={`relative w-full h-full rounded-lg overflow-hidden transition-all duration-300 ${
                 isSynced && hasMultipleProducts
                   ? "ring-2 ring-blue-500 ring-offset-2 shadow-lg"
                   : ""
@@ -232,7 +222,7 @@ export default function OptimizedViewerPool({
             >
               {/* Visor 360 centrado y con tamaño contenido */}
               {baseUrl && product.constants ? (
-                <div className="w-full h-full flex items-center justify-center relative">
+                <div className="w-full h-full relative">
                   {/* Indicador de sincronización/bloqueo */}
                   {isSynced && hasMultipleProducts && (
                     <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
@@ -258,9 +248,7 @@ export default function OptimizedViewerPool({
                     </div>
                   )}
 
-                  <div
-                    className={`relative flex items-center justify-center w-full h-full max-w-full max-h-[95%]`}
-                  >
+                  <div className={`relative w-full h-full`}>
                     <KeyShotXRViewer
                       key={product.product_id}
                       baseUrl={baseUrl}
@@ -280,7 +268,7 @@ export default function OptimizedViewerPool({
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-center text-gray-400">
+                <div className="flex items-center justify-center w-full h-full text-gray-400">
                   Sin vista 360
                 </div>
               )}

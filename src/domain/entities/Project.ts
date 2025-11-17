@@ -8,7 +8,8 @@ export interface Project {
   final_message?: string;
   created_at?: string;
   updated_at?: string;
-
+  size?: number;
+  num_product?: number;
   // Campos opcionales para relaciones pobladas
   products?: Product[];
 }

@@ -11,7 +11,8 @@ import { ViewUseCase } from "@/src/domain/usecase/ViewUseCase";
 // ============================================================
 export async function createViewAction(
   project_id: string,
-  idx: string
+  idx: string,
+  name?: string
 ): Promise<{
   view: View | null;
   ok: boolean;
@@ -34,6 +35,7 @@ export async function createViewAction(
       view_id: "",
       project_id,
       idx,
+      name: name || `Vista ${parseInt(idx, 10) + 1}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

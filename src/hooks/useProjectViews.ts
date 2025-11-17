@@ -18,7 +18,7 @@ export function useProjectViews() {
     if (views.length === 0) {
       const initialViews: ViewConfig[] = [
         {
-          name: "Vista 1",
+          name: "Nueva vista",
           products: Array(numProducts).fill(false),
         },
       ];

@@ -38,6 +38,7 @@ export class SSEService {
   send(data: SSEMessage): void {
     try {
       const message = `data: ${JSON.stringify(data)}\n\n`;
+      /*  console.log("📤 [SSEService] Enviando evento:", data); */
       this.controller.enqueue(this.encoder.encode(message));
     } catch (err) {
       console.error("❌ [SSEService] Error enviando mensaje SSE:", err);

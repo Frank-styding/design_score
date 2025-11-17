@@ -3,5 +3,6 @@ export interface View {
   project_id: string; // Referencia al proyecto (projects)
   idx: string; // Índice único por proyecto
   created_at?: string;
+  name: string;
   updated_at?: string;
 }

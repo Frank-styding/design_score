@@ -1,5 +1,4 @@
 import { createProjectAction } from "@/src/app/actions/projectActions";
-import { createProductAction } from "@/src/app/actions/productActions";
 import {
   createViewAction,
   assignProductsToViewAction,
@@ -30,13 +29,13 @@ export interface ProjectCreationResult {
  */
 export class ProjectCreationService {
   /**
-   * Crea un proyecto con sus productos
+   * Crea un proyecto (sin crear productos, solo el proyecto)
    */
   static async createProject(
     data: ProjectCreationData
   ): Promise<ProjectCreationResult> {
     try {
-      // 1. Crear el proyecto
+      // Crear el proyecto
       const projectResult = await createProjectAction({
         name: data.name,
         num_products: data.numProducts,
@@ -47,32 +46,17 @@ export class ProjectCreationService {
         throw new Error(projectResult.error || "Error al crear proyecto");
       }
 
-      const project = projectResult.project;
-
-      // 2. Crear los productos
-      const productPromises = Array.from({ length: data.numProducts }, (_, i) =>
-        createProductAction({
-          project_id: project.project_id!,
-          name: `Producto ${i + 1}`,
-          idx: i.toString(),
-        } as any)
-      );
-
-      const products = await Promise.all(productPromises);
-
-      if (products.some((p) => !p)) {
-        throw new Error("Error al crear algunos productos");
-      }
-
       return {
         success: true,
-        project,
-        products,
+        project: projectResult.project,
+        products: [],
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMsg =
+        error instanceof Error ? error.message : "Error desconocido";
       return {
         success: false,
-        error: error.message,
+        error: errorMsg,
       };
     }
   }
@@ -88,9 +72,13 @@ export class ProjectCreationService {
     const errors: string[] = [];
 
     try {
-      // Crear todas las vistas
+      // Crear todas las vistas con timestamp único para evitar conflictos de idx
       const viewCreationResults = await Promise.all(
-        views.map((view, idx) => createViewAction(projectId, idx.toString()))
+        views.map((view, idx) => {
+          // Generar idx único basado en timestamp + índice para garantizar unicidad
+          const uniqueIdx = `${Date.now()}_${idx}`;
+          return createViewAction(projectId, uniqueIdx, view.name);
+        })
       );
 
       // Log de resultados

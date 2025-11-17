@@ -134,12 +134,12 @@ export function useModelPreloader(views: View[], allProducts: Product[][]) {
         }),
       ]);
 
-      const duration = performance.now() - startTime;
-      console.log(
+      /*       const duration = performance.now() - startTime; */
+      /*       console.log(
         `📦 ${product.name || "Producto"}: ${duration.toFixed(0)}ms (${
           imagesToPreload.length
         } imgs)`
-      );
+      ); */
     },
     [preloadImageWithCache]
   );
@@ -162,7 +162,7 @@ export function useModelPreloader(views: View[], allProducts: Product[][]) {
       0
     );
 
-    console.log(`🚀 Iniciando precarga de ${totalProducts} productos...`);
+    /*  console.log(`🚀 Iniciando precarga de ${totalProducts} productos...`); */
     const overallStartTime = performance.now();
 
     setProgress({
@@ -180,7 +180,7 @@ export function useModelPreloader(views: View[], allProducts: Product[][]) {
       for (let i = 0; i < views.length; i++) {
         // ✅ Verificar si fue cancelado
         if (abortControllerRef.current?.signal.aborted) {
-          console.log("🛑 Precarga cancelada por usuario");
+          /*       console.log("🛑 Precarga cancelada por usuario"); */
           break;
         }
 
@@ -227,12 +227,12 @@ export function useModelPreloader(views: View[], allProducts: Product[][]) {
 
       setPreloadedData(preloadedMap);
 
-      const totalDuration = performance.now() - overallStartTime;
-      console.log(
+      /*  const totalDuration = performance.now() - overallStartTime; */
+      /* console.log(
         `✅ Precarga completada: ${loadedCount}/${totalProducts} productos en ${(
           totalDuration / 1000
         ).toFixed(1)}s`
-      );
+      ); */
     } catch (error) {
       console.error("❌ Error en precarga:", error);
     } finally {
@@ -250,8 +250,8 @@ export function useModelPreloader(views: View[], allProducts: Product[][]) {
     // ✅ CLEANUP: Cancelar descargas al desmontar componente
     return () => {
       if (abortControllerRef.current) {
-        console.log("🧹 Limpiando precarga - cancelando descargas...");
-        abortControllerRef.current.abort();
+        /*         console.log("🧹 Limpiando precarga - cancelando descargas...");
+         */ abortControllerRef.current.abort();
       }
     };
   }, [views, allProducts, preloadAllProducts]);

@@ -96,6 +96,10 @@ export async function addImagesBatchAction(
   isFirstBatch: boolean
 ): Promise<{ ok: boolean; error: string | null; uploaded: number }> {
   try {
+    /*     console.log(
+      `📤 [addImagesBatchAction] Iniciando subida de ${imageFiles.length} archivos para producto ${productId}`
+    ); */
+
     const client = await createClient();
     const authRepository = new SupabaseAuthRepository(client);
     const storageRepository = new SupabaseStorageRepository(client);
@@ -114,6 +118,8 @@ export async function addImagesBatchAction(
       return { ok: false, error: "No authenticated user", uploaded: 0 };
     }
 
+    /*     console.log(`✅ Usuario autenticado: ${admin.id}`); */
+
     // 🔍 DEBUG: Verificar producto y su admin_id
     const { data: productData, error: productError } = await client
       .from("products")
@@ -125,6 +131,13 @@ export async function addImagesBatchAction(
       console.error("❌ Producto no encontrado:", productId);
       return { ok: false, error: "Producto no encontrado", uploaded: 0 };
     }
+
+    /*   console.log(`✅ Producto encontrado:`, {
+      product_id: productData.product_id,
+      name: productData.name,
+      admin_id: productData.admin_id,
+      user_id: admin.id,
+    }); */
 
     if (productData.admin_id !== admin.id) {
       console.error("❌ admin_id no coincide:", {
@@ -140,9 +153,17 @@ export async function addImagesBatchAction(
 
     let uploadedCount = 0;
 
+    /*    console.log(`📦 Subiendo ${imageFiles.length} archivos en paralelo...`); */
+
     // Subir todas las imágenes en paralelo
-    const uploadPromises = imageFiles.map((imageFile, index) =>
-      productUseCase
+    const uploadPromises = imageFiles.map((imageFile, index) => {
+      /*       console.log(
+        `  - Archivo ${index + 1}: ${imageFile.name} (${(
+          imageFile.size / 1024
+        ).toFixed(2)} KB)`
+      );
+ */
+      return productUseCase
         .addImageToProduct(
           productId,
           admin.id as string,
@@ -150,20 +171,36 @@ export async function addImagesBatchAction(
           index === 0 && isFirstBatch
         )
         .then((result) => {
-          if (result.ok) uploadedCount++;
+          if (result.ok) {
+            uploadedCount++;
+            /*   console.log(`  ✅ Subido: ${imageFile.name}`); */
+          } else {
+            console.error(
+              `  ❌ Error subiendo ${imageFile.name}:`,
+              result.error
+            );
+          }
           return result;
         })
-        .catch((error) => ({
-          ok: false,
-          error: error.message,
-        }))
-    );
+        .catch((error) => {
+          console.error(`  ❌ Excepción subiendo ${imageFile.name}:`, error);
+          return {
+            ok: false,
+            error: error.message,
+          };
+        });
+    });
 
     const results = await Promise.all(uploadPromises);
     const hasErrors = results.some((result) => !result.ok);
 
+    /*     console.log(
+      `📊 Resultado de subida: ${uploadedCount}/${imageFiles.length} archivos exitosos`
+    );
+ */
     if (hasErrors) {
       const errors = results.filter((r) => !r.ok).map((r) => r.error);
+      console.error("❌ Errores en subida:", errors);
       return {
         ok: false,
         error: `${errors.length} imágenes fallaron: ${errors[0]}`,
@@ -171,9 +208,10 @@ export async function addImagesBatchAction(
       };
     }
 
+    /*     console.log("✅ Todos los archivos subidos exitosamente"); */
     return { ok: true, error: null, uploaded: uploadedCount };
   } catch (error) {
-    console.error("Error in batch upload:", error);
+    console.error("❌ Error en batch upload:", error);
     return { ok: false, error: String(error), uploaded: 0 };
   }
 }
@@ -365,5 +403,88 @@ export async function getProductsCountAction(): Promise<number> {
   } catch (error) {
     console.error("Error counting products:", error);
     return 0;
+  }
+}
+
+/**
+ * Añade un producto a un proyecto (relación muchos-a-muchos)
+ */
+export async function addProductToProjectAction(
+  productId: string,
+  projectId: string
+): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const client = await createClient();
+    const authRepository = new SupabaseAuthRepository(client);
+    const storageRepository = new SupabaseStorageRepository(client);
+    const productRepository = new SupabaseProductRepository(
+      client,
+      storageRepository
+    );
+    const productUseCase = new ProductUseCase(productRepository);
+    const authUseCase = new AuthUseCase(authRepository);
+
+    const admin = await authUseCase.getCurrentUser();
+    if (!admin) return { ok: false, error: "No authenticated user" };
+
+    return await productUseCase.addProductToProject(productId, projectId);
+  } catch (error) {
+    console.error("Error adding product to project:", error);
+    return { ok: false, error: String(error) };
+  }
+}
+
+/**
+ * Elimina un producto de un proyecto (relación muchos-a-muchos)
+ */
+export async function removeProductFromProjectAction(
+  productId: string,
+  projectId: string
+): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const client = await createClient();
+    const authRepository = new SupabaseAuthRepository(client);
+    const storageRepository = new SupabaseStorageRepository(client);
+    const productRepository = new SupabaseProductRepository(
+      client,
+      storageRepository
+    );
+    const productUseCase = new ProductUseCase(productRepository);
+    const authUseCase = new AuthUseCase(authRepository);
+
+    const admin = await authUseCase.getCurrentUser();
+    if (!admin) return { ok: false, error: "No authenticated user" };
+
+    return await productUseCase.removeProductFromProject(productId, projectId);
+  } catch (error) {
+    console.error("Error removing product from project:", error);
+    return { ok: false, error: String(error) };
+  }
+}
+
+/**
+ * Obtiene todos los proyectos a los que pertenece un producto
+ */
+export async function getProjectsByProductIdAction(
+  productId: string
+): Promise<string[]> {
+  try {
+    const client = await createClient();
+    const authRepository = new SupabaseAuthRepository(client);
+    const storageRepository = new SupabaseStorageRepository(client);
+    const productRepository = new SupabaseProductRepository(
+      client,
+      storageRepository
+    );
+    const productUseCase = new ProductUseCase(productRepository);
+    const authUseCase = new AuthUseCase(authRepository);
+
+    const admin = await authUseCase.getCurrentUser();
+    if (!admin) return [];
+
+    return await productUseCase.findProjectsByProductId(productId);
+  } catch (error) {
+    console.error("Error getting projects by product ID:", error);
+    return [];
   }
 }

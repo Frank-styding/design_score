@@ -145,7 +145,7 @@ export default function ProjectViewerPage() {
     );
   }
 
-  const viewType = products.length === 1 ? "RUTA" : "COMPARATIVO";
+  // const viewType = products.length === 1 ? "RUTA" : "COMPARATIVO";
 
   return (
     <div className="fixed inset-0 bg-white flex flex-col">
@@ -154,7 +154,7 @@ export default function ProjectViewerPage() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
             <p className="text-black text-[20px] ml-2 mt-1">
-              {viewType} {viewer.currentViewIndex + 1}
+              {currentView.name}
             </p>
           </div>
         </div>

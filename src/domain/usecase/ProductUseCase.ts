@@ -14,9 +14,8 @@ export class ProductUseCase {
     if (!product.admin_id) {
       throw new Error("El ID del administrador es requerido");
     }
-    if (!product.project_id) {
-      throw new Error("El ID del proyecto es requerido");
-    }
+    // Ya no se requiere project_id en la creación del producto
+    // La relación se establece después mediante addProductToProject
     return await this.productRepository.createProduct(product);
   }
 
@@ -112,5 +111,47 @@ export class ProductUseCase {
       return await this.getProductsByProjectId(projectId);
     }
     return await this.productRepository.searchProducts(projectId, searchTerm);
+  }
+
+  /**
+   * Añade un producto a un proyecto (relación muchos-a-muchos)
+   */
+  async addProductToProject(productId: string, projectId: string) {
+    if (!productId) {
+      throw new Error("El ID del producto es requerido");
+    }
+    if (!projectId) {
+      throw new Error("El ID del proyecto es requerido");
+    }
+    return await this.productRepository.addProductToProject(
+      productId,
+      projectId
+    );
+  }
+
+  /**
+   * Elimina un producto de un proyecto (relación muchos-a-muchos)
+   */
+  async removeProductFromProject(productId: string, projectId: string) {
+    if (!productId) {
+      throw new Error("El ID del producto es requerido");
+    }
+    if (!projectId) {
+      throw new Error("El ID del proyecto es requerido");
+    }
+    return await this.productRepository.removeProductFromProject(
+      productId,
+      projectId
+    );
+  }
+
+  /**
+   * Obtiene todos los proyectos a los que pertenece un producto
+   */
+  async findProjectsByProductId(productId: string) {
+    if (!productId) {
+      throw new Error("El ID del producto es requerido");
+    }
+    return await this.productRepository.findProjectsByProductId(productId);
   }
 }

@@ -29,7 +29,7 @@ export function useSessionTimeout() {
 
         // Si la sesión tiene más de 4 horas, cerrar sesión
         if (sessionAge > SESSION_TIMEOUT) {
-          console.log("⏰ Sesión expirada después de 4 horas");
+          /*           console.log("⏰ Sesión expirada después de 4 horas"); */
           await signOutAction();
           router.push("/?session=expired");
         }

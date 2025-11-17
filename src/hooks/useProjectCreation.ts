@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLoadingState } from "./useLoadingState";
-import { useProjectViews, ViewConfig } from "./useProjectViews";
-import { SSEUploadProcessor } from "@/src/lib/sseUploadProcessor";
+import { useProjectViews } from "./useProjectViews";
 import { ProjectCreationService } from "@/src/lib/projectCreationService";
+import { addProductToProjectAction } from "@/src/app/actions/productActions";
 
 /**
  * Datos del proyecto
@@ -22,16 +22,16 @@ export function useProjectCreation() {
     name: "",
     finalMessage: "",
   });
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const loadingState = useLoadingState();
   const viewsState = useProjectViews();
 
   /**
-   * Maneja la subida de archivos y actualiza las vistas
+   * Maneja la selección de productos y actualiza las vistas
    */
-  const handleFilesUploaded = (files: File[]) => {
-    setUploadedFiles(files);
-    viewsState.updateViewsForNewProducts(files.length);
+  const handleProductsSelected = (productIds: string[]) => {
+    setSelectedProductIds(productIds);
+    viewsState.updateViewsForNewProducts(productIds.length);
   };
 
   /**
@@ -39,16 +39,15 @@ export function useProjectCreation() {
    */
   const createProject = async () => {
     let createdProject: any = null;
-    let createdProducts: any[] = [];
 
     try {
       loadingState.startLoading("Preparando proyecto...");
 
-      // 1. Crear proyecto y productos
+      // 1. Crear proyecto
       const projectResult = await ProjectCreationService.createProject({
         name: projectData.name,
         finalMessage: projectData.finalMessage,
-        numProducts: uploadedFiles.length,
+        numProducts: selectedProductIds.length,
       });
 
       if (!projectResult.success || !projectResult.project) {
@@ -56,55 +55,32 @@ export function useProjectCreation() {
       }
 
       createdProject = projectResult.project;
-      createdProducts = projectResult.products || [];
 
-      // 2. Subir archivos con progreso
-      if (uploadedFiles.length > 0 && createdProducts.length > 0) {
-        loadingState.updateProgress(0, "Preparando subida de archivos...");
+      // 2. Asociar productos seleccionados al proyecto
+      if (selectedProductIds.length > 0) {
+        loadingState.updateProgress(30, "Asociando productos al proyecto...");
 
-        // Pequeño delay para asegurar que el modal se muestre
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        const productIds = createdProducts.map((p) => p.product_id);
-        const adminId = createdProducts[0].admin_id;
-
-        // Procesar archivos con SSE
-        await SSEUploadProcessor.processMultipleFiles(
-          uploadedFiles,
-          productIds,
-          adminId,
-          // Callback de progreso
-          (progressData) => {
-            const message = `Archivo ${progressData.fileIndex + 1}/${
-              progressData.totalFiles
-            } - ${progressData.message}`;
-            loadingState.updateProgress(progressData.progress, message);
-          },
-          // Callback de error
-          (error) => {
-            console.error(
-              `Error en archivo ${error.fileIndex + 1}:`,
-              error.message
-            );
-            loadingState.updateProgress(
-              loadingState.progress,
-              `Error en archivo ${error.fileIndex + 1}: ${error.message}`
-            );
-          }
+        const associationPromises = selectedProductIds.map((productId) =>
+          addProductToProjectAction(productId, createdProject.project_id!)
         );
 
-        loadingState.finishLoading("¡Archivos subidos exitosamente!");
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const results = await Promise.all(associationPromises);
+        const hasErrors = results.some((r) => !r.ok);
+
+        if (hasErrors) {
+          throw new Error("Error al asociar algunos productos al proyecto");
+        }
+
+        loadingState.updateProgress(60, "Productos asociados correctamente");
       }
 
       // 3. Crear vistas y asignar productos
-      loadingState.resetLoading();
+      loadingState.updateProgress(70, "Creando vistas...");
 
-      const productIds = createdProducts.map((p) => p.product_id);
       const viewsResult = await ProjectCreationService.createViews(
         createdProject.project_id!,
         viewsState.views,
-        productIds
+        selectedProductIds
       );
 
       if (!viewsResult.success && viewsResult.errors.length > 0) {
@@ -112,9 +88,12 @@ export function useProjectCreation() {
       }
 
       // 4. Éxito - Redireccionar
+      loadingState.updateProgress(100, "¡Proyecto creado exitosamente!");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       console.log("✅ Proyecto creado completamente");
       router.push("/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ Error creando proyecto:", error);
 
       // Rollback
@@ -123,14 +102,20 @@ export function useProjectCreation() {
       if (createdProject?.project_id) {
         try {
           await ProjectCreationService.rollback(createdProject.project_id);
-        } catch (rollbackError: any) {
-          console.error("❌ Error durante rollback:", rollbackError.message);
+        } catch (rollbackError: unknown) {
+          const rollbackMsg =
+            rollbackError instanceof Error
+              ? rollbackError.message
+              : String(rollbackError);
+          console.error("❌ Error durante rollback:", rollbackMsg);
         }
       }
 
       // Mostrar error
+      const errorMsg =
+        error instanceof Error ? error.message : "Error desconocido";
       alert(
-        `❌ Error al crear el proyecto: ${error.message}\n\n` +
+        `❌ Error al crear el proyecto: ${errorMsg}\n\n` +
           `Los cambios han sido revertidos automáticamente.`
       );
 
@@ -143,10 +128,10 @@ export function useProjectCreation() {
     projectData,
     setProjectData,
 
-    // Archivos
-    uploadedFiles,
-    setUploadedFiles,
-    handleFilesUploaded,
+    // Productos seleccionados
+    selectedProductIds,
+    setSelectedProductIds,
+    handleProductsSelected,
 
     // Vistas
     views: viewsState.views,

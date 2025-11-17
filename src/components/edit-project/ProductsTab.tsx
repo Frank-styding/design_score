@@ -1,37 +1,49 @@
 import { Product } from "@/src/domain/entities/Product";
 import Button from "@/src/components/ui/Button";
 import { ProductGallery } from "./ProductGallery";
-import { AddProductModal } from "./AddProductModal";
+import { ProductSelectionModal } from "./ProductSelectionModal";
+import { ProductAdditionModal } from "./ProductAdditionModal";
 import KeyShotXRViewer from "@/src/components/KeyShotXRViewer";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getViewerBaseUrl } from "@/src/lib/getViewerBaseUrl";
 
 interface ProductsTabProps {
   products: Product[];
   selectedProductIndex: number | null;
   isAddingProduct: boolean;
-  newProductName: string;
+  selectedProductsToAdd: string[];
   onSelectProduct: (index: number) => void;
-  onAddProduct: () => Promise<void>;
+  onAddProduct: (productIds: string[]) => Promise<void>;
   onDeleteProduct: (productId: string) => Promise<void>;
   onOpenAddProductModal: () => void;
   onCloseAddProductModal: () => void;
-  onNewProductNameChange: (name: string) => void;
+  onSelectedProductsChange: (productIds: string[]) => void;
   isSaving: boolean;
+  productAdditionModal: {
+    isOpen: boolean;
+    isLoading: boolean;
+    error: string | null;
+    success: boolean;
+    productsCount: number;
+  };
+  onCloseProductAdditionModal: () => void;
 }
 
 export function ProductsTab({
   products,
   selectedProductIndex,
   isAddingProduct,
-  newProductName,
+  // selectedProductsToAdd no se usa directamente aquí, pero se pasa al modal
   onSelectProduct,
   onAddProduct,
   onDeleteProduct,
   onOpenAddProductModal,
   onCloseAddProductModal,
-  onNewProductNameChange,
+  onSelectedProductsChange,
   isSaving,
+  productAdditionModal,
+  onCloseProductAdditionModal,
 }: ProductsTabProps) {
   const router = useRouter();
 
@@ -47,6 +59,12 @@ export function ProductsTab({
       document.body.style.overflow = "unset";
     };
   }, [selectedProductIndex]);
+
+  const handleConfirmAddProducts = async (productIds: string[]) => {
+    await onAddProduct(productIds);
+  };
+
+  const existingProductIds = products.map((p) => p.product_id || p.id || "");
 
   return (
     <div>
@@ -93,7 +111,7 @@ export function ProductsTab({
                 style={{ height: "70vh" }}
               >
                 <KeyShotXRViewer
-                  baseUrl={products[selectedProductIndex].path!}
+                  baseUrl={getViewerBaseUrl(products[selectedProductIndex])}
                   config={products[selectedProductIndex].constants! as any}
                   className="w-full h-full"
                 />
@@ -137,14 +155,23 @@ export function ProductsTab({
         isSaving={isSaving}
       />
 
-      {/* Modal para agregar producto */}
-      <AddProductModal
+      {/* Modal para agregar productos */}
+      <ProductSelectionModal
         isOpen={isAddingProduct}
-        productName={newProductName}
-        onNameChange={onNewProductNameChange}
-        onConfirm={onAddProduct}
-        onCancel={onCloseAddProductModal}
+        onClose={onCloseAddProductModal}
+        onConfirm={handleConfirmAddProducts}
+        existingProductIds={existingProductIds}
         isAdding={isSaving}
+      />
+
+      {/* Modal de progreso de agregación */}
+      <ProductAdditionModal
+        isOpen={productAdditionModal.isOpen}
+        isLoading={productAdditionModal.isLoading}
+        error={productAdditionModal.error}
+        success={productAdditionModal.success}
+        productsCount={productAdditionModal.productsCount}
+        onClose={onCloseProductAdditionModal}
       />
 
       {/* Botón para volver al Dashboard */}

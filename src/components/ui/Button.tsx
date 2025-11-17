@@ -19,9 +19,9 @@ export default function Button({
     primary:
       "bg-white border border-gray-300 text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed",
     secondary:
-      "bg-transparent border border-gray-300 text-gray-300 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed",
+      "border border-gray-400 bg-neutral-800 text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed",
     ghost:
-      "text-gray-900 text-sm hover:text-gray-400 transition-colors disabled:opacity-50",
+      "text-gray-900 border text-sm hover:text-gray-400 transition-colors disabled:opacity-50",
   };
 
   return (

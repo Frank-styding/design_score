@@ -16,6 +16,7 @@ export class SupabaseViewRepository implements IViewRepository {
       .insert({
         project_id: view.project_id,
         idx: view.idx,
+        name: view.name,
       })
       .select()
       .single();
@@ -220,6 +221,7 @@ export class SupabaseViewRepository implements IViewRepository {
       view_id: data.view_id,
       project_id: data.project_id,
       idx: data.idx,
+      name: data.name,
       created_at: data.created_at,
       updated_at: data.updated_at,
     };
@@ -229,7 +231,6 @@ export class SupabaseViewRepository implements IViewRepository {
     return {
       product_id: data.product_id,
       admin_id: data.admin_id,
-      project_id: data.project_id,
       name: data.name,
       description: data.description,
       cover_image: data.cover_image,

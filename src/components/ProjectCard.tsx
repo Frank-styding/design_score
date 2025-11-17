@@ -13,20 +13,11 @@ export default function ProjectCard({
   onInfo,
   onDelete,
 }: ProjectCardProps) {
-  // Calcular el peso total del proyecto sumando los weights de todos los productos
-  const getTotalWeight = () => {
-    if (
-      !project.products ||
-      !Array.isArray(project.products) ||
-      project.products.length === 0
-    ) {
-      return 0;
-    }
-    return project.products.reduce((sum, p) => sum + (p.weight || 0), 0);
-  };
-
-  const totalWeight = getTotalWeight();
-  const numProducts = project.products?.length ?? project.num_products ?? 0;
+  // Usar los valores calculados en el servidor o calcular como fallback
+  const numProducts = project.num_products ?? project.products?.length ?? 0;
+  const totalWeight =
+    project.size ??
+    (project.products?.reduce((sum, p) => sum + (p.weight || 0), 0) || 0);
 
   return (
     <div className="bg-white border border-gray-300 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 h-[16em] w-[15em]">

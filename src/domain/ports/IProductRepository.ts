@@ -31,4 +31,17 @@ export interface IProductRepository {
   ): Promise<{ ok: boolean; error: string | null }>;
 
   searchProducts(projectId: string, searchTerm: string): Promise<Product[]>;
+
+  // Métodos para manejar la relación muchos-a-muchos con projects
+  addProductToProject(
+    productId: string,
+    projectId: string
+  ): Promise<{ ok: boolean; error: string | null }>;
+
+  removeProductFromProject(
+    productId: string,
+    projectId: string
+  ): Promise<{ ok: boolean; error: string | null }>;
+
+  findProjectsByProductId(productId: string): Promise<string[]>;
 }
