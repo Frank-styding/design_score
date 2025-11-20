@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
-import KeyShotXRViewer from "@/src/components/KeyShotXRViewer";
+import KeyShotXRViewer, {
+  KeyShotXRConfig,
+} from "@/src/components/KeyShotXRViewer";
 import SyncToggle from "@/src/components/SyncToggle";
 import { Product } from "@/src/domain/entities/Product";
 import { getViewerBaseUrl } from "@/src/lib/getViewerBaseUrl";
@@ -23,23 +25,27 @@ export default function OptimizedViewerPool({
   const hasMultipleProducts = currentProducts.length > 1;
   const iframesRef = useRef<Map<string, HTMLIFrameElement>>(new Map());
 
-  // Resetear sincronización cuando cambia la vista
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  // Resetear solo el estado de sincronización cuando cambia la vista
+  // NO limpiar iframesRef aquí porque los iframes nuevos se registrarán automáticamente
   useEffect(() => {
     setIsSynced(false);
-    iframesRef.current.clear();
-    setIframesReady(0);
   }, [currentViewIndex]);
 
   // Sincronización mediante monitoreo de índices de KeyShotXR
   useEffect(() => {
+    // Esperar a que haya al menos un iframe listo antes de procesar
     const hasIframes = iframesRef.current.size > 0;
+
+    // Si no hay iframes listos, no hacer nada
+    if (!hasIframes) {
+      return;
+    }
 
     const sendSyncState = (enabled: boolean) => {
       const iframeCount = iframesRef.current.size;
       if (iframeCount === 0) return;
 
-      iframesRef.current.forEach((iframe, productId) => {
+      iframesRef.current.forEach((iframe, _productId) => {
         if (iframe.contentWindow) {
           iframe.contentWindow.postMessage(
             {
@@ -78,8 +84,8 @@ export default function OptimizedViewerPool({
           button,
         } = event.data;
 
-        iframesRef.current.forEach((iframe, productId) => {
-          if (productId === containerId) return;
+        iframesRef.current.forEach((iframe, _productId) => {
+          if (_productId === containerId) return;
 
           if (iframe.contentWindow) {
             iframe.contentWindow.postMessage(
@@ -107,7 +113,7 @@ export default function OptimizedViewerPool({
       ) {
         const { containerId, relativeX, relativeY } = event.data;
 
-        iframesRef.current.forEach((iframe, productId) => {
+        iframesRef.current.forEach((iframe, _productId) => {
           if (iframe.contentWindow) {
             iframe.contentWindow.postMessage(
               {
@@ -127,7 +133,7 @@ export default function OptimizedViewerPool({
       if (event.data.type === "keyshot-mouse-sync") {
         const { containerId, relativeX, relativeY, isMouseDown } = event.data;
 
-        iframesRef.current.forEach((iframe, productId) => {
+        iframesRef.current.forEach((iframe, _productId) => {
           if (iframe.contentWindow) {
             iframe.contentWindow.postMessage(
               {
@@ -148,7 +154,7 @@ export default function OptimizedViewerPool({
       if (event.data.type === "keyshot-index-changed") {
         const { containerId, uIndex, vIndex } = event.data;
 
-        iframesRef.current.forEach((iframe, productId) => {
+        iframesRef.current.forEach((iframe, _productId) => {
           if (iframe.contentWindow) {
             iframe.contentWindow.postMessage(
               {
@@ -170,7 +176,7 @@ export default function OptimizedViewerPool({
       clearTimeout(retryTimeout);
       window.removeEventListener("message", handlePointerEvent);
     };
-  }, [isSynced, hasMultipleProducts, iframesReady]);
+  }, [isSynced, hasMultipleProducts, iframesReady, currentProducts.length]);
 
   const currentViewers = useMemo(() => {
     return currentProducts.map((product, index) => {
@@ -209,7 +215,7 @@ export default function OptimizedViewerPool({
       )}
 
       <div className={`grid gap-4 h-full w-full ${gridClass} bg-white`}>
-        {currentViewers.map(({ product, index }) => {
+        {currentViewers.map(({ product }) => {
           const baseUrl = getViewerBaseUrl(product);
           return (
             <div
@@ -252,7 +258,7 @@ export default function OptimizedViewerPool({
                     <KeyShotXRViewer
                       key={product.product_id}
                       baseUrl={baseUrl}
-                      config={product.constants as any}
+                      config={product.constants as unknown as KeyShotXRConfig}
                       className="w-full h-full"
                       viewerId={product.product_id!}
                       onIframeReady={(iframe) => {
@@ -261,7 +267,7 @@ export default function OptimizedViewerPool({
                           setIframesReady((prev) => prev + 1);
                         } else {
                           iframesRef.current.delete(product.product_id!);
-                          setIframesReady((prev) => prev - 1);
+                          setIframesReady((prev) => Math.max(0, prev - 1));
                         }
                       }}
                     />
@@ -287,7 +293,7 @@ export default function OptimizedViewerPool({
                 <KeyShotXRViewer
                   key={product.product_id}
                   baseUrl={baseUrl}
-                  config={product.constants as any}
+                  config={product.constants as unknown as KeyShotXRConfig}
                   className="w-full h-full"
                 />
               )}
