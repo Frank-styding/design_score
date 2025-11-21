@@ -8,6 +8,7 @@ import ViewProductModal from "@/src/components/ViewProductModal";
 import UploadProgressModal from "@/src/components/dashboard/UploadProgressModal";
 import AddProductDialog from "@/src/components/dashboard/AddProductDialog";
 import DeleteProductConfirmModal from "@/src/components/dashboard/DeleteProductModal";
+import { LoadingScreen } from "@/src/components/LoadingScreen";
 import { useDashboard } from "@/src/hooks/useDashboard";
 import { useProducts } from "@/src/hooks/useProducts";
 import { useProductUpload } from "@/src/hooks/useProductUpload";
@@ -111,9 +112,15 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-800 text-xl">Cargando...</div>
-      </div>
+      <LoadingScreen
+        title="Cargando Dashboard"
+        subtitle="Preparando tus proyectos y productos..."
+        steps={[
+          "Cargando proyectos",
+          "Obteniendo productos",
+          "Preparando interfaz",
+        ]}
+      />
     );
   }
 
@@ -264,6 +271,7 @@ export default function DashboardPage() {
                     product={product}
                     onView={handleViewProduct}
                     onDelete={handleDeleteProduct}
+                    onNameUpdated={productsHook.refreshProducts}
                   />
                 ))}
               </div>
@@ -307,9 +315,11 @@ export default function DashboardPage() {
 
       {/* Delete Product Confirmation Modal */}
       <DeleteProductConfirmModal
+        key={productToDelete} // Esto resetea el componente cada vez que cambia el producto
         isOpen={productToDelete !== null}
         onConfirm={confirmDeleteProduct}
         onCancel={() => setProductToDelete(null)}
+        productId={productToDelete}
       />
 
       {/* View Product Modal */}

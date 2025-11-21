@@ -106,7 +106,7 @@ export function useProductUpload() {
 
         if (value) {
           buffer += decoder.decode(value, { stream: true });
-          console.log("📦 [SSE] Chunk recibido, buffer size:", buffer.length);
+          //console.log("📦 [SSE] Chunk recibido, buffer size:", buffer.length);
 
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";

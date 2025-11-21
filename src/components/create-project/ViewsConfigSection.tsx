@@ -139,7 +139,7 @@ export default function ViewsConfigSection({
                           type="text"
                           value={editingViewName}
                           onChange={(e) => setEditingViewName(e.target.value)}
-                          className="flex-1 p-1 border border-gray-300 rounded text-sm"
+                          className="flex-1 p-1 text-black border border-gray-300 rounded text-sm"
                           onKeyPress={(e) => {
                             if (e.key === "Enter") {
                               saveViewName(viewIndex);

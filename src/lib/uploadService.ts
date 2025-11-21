@@ -6,6 +6,7 @@ import { SupabaseStorageRepository } from "@/src/infrastrucutre/supabse/Supabase
 export interface UploadConfig {
   batchSize: number; // Número de imágenes a subir en paralelo
   delayBetweenBatches: number; // Milisegundos entre lotes
+  delayBetweenFiles: number; // Milisegundos entre archivos individuales
 }
 
 /**
@@ -35,8 +36,9 @@ export interface UploadResult {
  */
 export class ImageUploadService {
   private config: UploadConfig = {
-    batchSize: 10,
-    delayBetweenBatches: 350,
+    batchSize: 5, // Balance óptimo: 5 archivos por lote
+    delayBetweenBatches: 400, // 400ms entre lotes - balance velocidad/estabilidad
+    delayBetweenFiles: 0, // Sin delay entre archivos dentro del batch (suben en paralelo)
   };
 
   constructor(
@@ -97,7 +99,7 @@ export class ImageUploadService {
     const total = imageArray.length;
 
     // Subir en lotes
-    const { batchSize, delayBetweenBatches } = this.config;
+    const { batchSize, delayBetweenBatches, delayBetweenFiles } = this.config;
 
     for (let i = 0; i < imageArray.length; i += batchSize) {
       const batch = imageArray.slice(i, i + batchSize);
@@ -109,9 +111,10 @@ export class ImageUploadService {
         contentType: "image/png",
       }));
 
-      // Subir el lote completo en paralelo
+      // Subir el lote completo en paralelo con delay entre archivos
       const results = await this.storageRepository.uploadBuffersBatch(
-        batchUploads
+        batchUploads,
+        delayBetweenFiles
       );
 
       // Procesar resultados del lote

@@ -5,6 +5,10 @@ import { Product } from "@/src/domain/entities/Product";
 import { getAllProductsAction } from "@/src/app/actions/productActions";
 import ProductCard from "@/src/components/ProductCard";
 import Button from "@/src/components/ui/Button";
+import AddProductDialog from "@/src/components/dashboard/AddProductDialog";
+import UploadProgressModal from "@/src/components/dashboard/UploadProgressModal";
+import { useProductUpload } from "@/src/hooks/useProductUpload";
+import { useProducts } from "@/src/hooks/useProducts";
 
 interface ProductSelectionSectionProps {
   initialSelectedProducts?: string[];
@@ -23,6 +27,9 @@ export default function ProductSelectionSection({
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+  const { uploadState, uploadProduct, startUpload } = useProductUpload();
+  const productsHook = useProducts();
 
   useEffect(() => {
     loadProducts();
@@ -43,6 +50,52 @@ export default function ProductSelectionSection({
       console.error("Error cargando productos:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCreateProduct = async (
+    name: string,
+    description: string,
+    files: FileList
+  ) => {
+    if (files.length === 0 || !files[0].name.endsWith(".zip")) {
+      alert("Debes seleccionar un archivo ZIP");
+      return;
+    }
+
+    const zipFile = files[0];
+
+    try {
+      // Cerrar el modal de creación Y mostrar inmediatamente el modal de progreso
+      setIsAddProductModalOpen(false);
+      startUpload(); // Esto mostrará el UploadProgressModal inmediatamente
+
+      // 1. Crear el producto en la base de datos
+      const result = await productsHook.createProduct(name, description, []);
+
+      if (!result.ok || !result.product) {
+        throw new Error(result.error || "Error al crear producto");
+      }
+
+      const productId = result.product.product_id || result.product.id;
+      if (!productId) {
+        throw new Error("No se obtuvo el ID del producto");
+      }
+
+      // 2. Subir el archivo ZIP usando el hook
+      const uploadResult = await uploadProduct(productId, zipFile);
+
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || "Error al subir el archivo");
+      }
+
+      // 3. Recargar productos
+      await loadProducts();
+      await productsHook.refreshProducts();
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("❌ Error creando producto:", err);
+      alert(`Error al crear producto: ${err.message}`);
     }
   };
 
@@ -84,16 +137,28 @@ export default function ProductSelectionSection({
         Selecciona los Productos
       </h2>
 
-      {/* Search Bar */}
-      <div className="relative mb-6">
-        <input
-          type="text"
-          placeholder="Buscar productos por nombre..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full text-black px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800"
-        />
-        <SearchIcon />
+      {/* Search Bar y Botón Nuevo Producto */}
+      <div className="flex gap-4 mb-6">
+        {/* Search Bar */}
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="Buscar productos por nombre..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full text-black px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800"
+          />
+          <SearchIcon />
+        </div>
+
+        {/* Botón Nuevo Producto */}
+        <button
+          onClick={() => setIsAddProductModalOpen(true)}
+          className="px-5 py-2 bg-gray-800 hover:bg-black text-white rounded transition-colors flex items-center gap-2 whitespace-nowrap"
+        >
+          <PlusIcon />
+          <span>Nuevo Producto</span>
+        </button>
       </div>
 
       {/* Selected Count */}
@@ -120,6 +185,7 @@ export default function ProductSelectionSection({
                   product.product_id || product.id || ""
                 )}
                 onSelect={handleToggleProduct}
+                onNameUpdated={loadProducts}
               />
             ))}
           </div>
@@ -140,6 +206,23 @@ export default function ProductSelectionSection({
           Continuar ({selectedProducts.size})
         </Button>
       </div>
+
+      {/* Modales */}
+      <AddProductDialog
+        isOpen={isAddProductModalOpen}
+        onClose={() => setIsAddProductModalOpen(false)}
+        onSubmit={handleCreateProduct}
+      />
+
+      <UploadProgressModal
+        isOpen={uploadState.isUploading}
+        progress={uploadState.progress}
+        message={uploadState.message}
+        filesUploaded={uploadState.filesUploaded}
+        totalFiles={uploadState.totalFiles}
+        currentFileName={uploadState.currentFileName}
+        phase={uploadState.phase}
+      />
     </div>
   );
 }
@@ -157,6 +240,25 @@ function SearchIcon() {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+      />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 4v16m8-8H4"
       />
     </svg>
   );

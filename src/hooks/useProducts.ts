@@ -65,19 +65,23 @@ export function useProducts() {
   // Eliminar producto
   const deleteProduct = async (productId: string) => {
     try {
+      console.log(`🗑️  Eliminando producto: ${productId}`);
       const result = await deleteProductAction(productId);
 
       if (result.ok) {
+        console.log(`✅ Producto eliminado exitosamente: ${productId}`);
+        // Actualizar el estado local para remover el producto
         setProducts((prev) =>
           prev.filter((p) => p.product_id !== productId && p.id !== productId)
         );
         return { ok: true };
       }
 
+      console.error(`❌ Error al eliminar producto:`, result.error);
       return { ok: false, error: result.error };
     } catch (err: unknown) {
       const error = err as Error;
-      console.error("Error eliminando producto:", error);
+      console.error("❌ Excepción eliminando producto:", error);
       return { ok: false, error: error.message };
     }
   };

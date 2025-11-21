@@ -1,6 +1,7 @@
 import { Product } from "@/src/domain/entities/Product";
 import Image from "next/image";
 import { useState } from "react";
+import EditProductNameModal from "@/src/components/EditProductNameModal";
 
 interface ProductCardProps {
   product: Product;
@@ -10,6 +11,7 @@ interface ProductCardProps {
   onSelect?: (productId: string) => void;
   isSelected?: boolean;
   selectionMode?: boolean;
+  onNameUpdated?: () => void; // Callback cuando se actualiza el nombre
 }
 
 export default function ProductCard({
@@ -20,10 +22,12 @@ export default function ProductCard({
   onSelect,
   isSelected = false,
   selectionMode = false,
+  onNameUpdated,
 }: ProductCardProps) {
   const productId = product.product_id || product.id || "";
   const weight = product.weight || 0;
   const [imageError, setImageError] = useState(false);
+  const [isEditNameModalOpen, setIsEditNameModalOpen] = useState(false);
 
   // Validar que cover_image sea una imagen válida (no un ZIP)
   const isValidCoverImage =
@@ -69,9 +73,8 @@ export default function ProductCard({
       {/* Content */}
       <div className="p-4 flex flex-col justify-between h-[calc(100%-8rem)] gap-2">
         <div>
-          <h3
-            className={`text-lg text-center font-medium text-gray-800 mb-2 truncate`}
-          >
+          {/* Título sin botón de editar */}
+          <h3 className="text-lg text-center font-medium text-gray-800 mb-2 truncate">
             {product.name}
           </h3>
 
@@ -95,6 +98,17 @@ export default function ProductCard({
                 <EyeIcon />
               </button>
             )}
+            {/* Botón de editar nombre */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditNameModalOpen(true);
+              }}
+              className="flex items-center justify-center w-10 h-10 bg-neutral-600 hover:bg-neutral-700 text-white rounded transition-colors"
+              title="Editar nombre"
+            >
+              <PencilIcon />
+            </button>
             {onEdit && (
               <button
                 onClick={() => onEdit(productId)}
@@ -116,6 +130,18 @@ export default function ProductCard({
           </div>
         )}
       </div>
+
+      {/* Modal de edición de nombre */}
+      <EditProductNameModal
+        isOpen={isEditNameModalOpen}
+        productId={productId}
+        currentName={product.name}
+        onClose={() => setIsEditNameModalOpen(false)}
+        onSuccess={() => {
+          // Recargar datos si se proporciona el callback
+          onNameUpdated?.();
+        }}
+      />
     </div>
   );
 }
@@ -167,6 +193,24 @@ function DeleteIcon() {
         fillRule="evenodd"
         d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
         clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
       />
     </svg>
   );

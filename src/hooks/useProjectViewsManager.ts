@@ -136,42 +136,62 @@ export function useProjectViewsManager(projectId: string) {
   };
 
   const updateViewName = async (viewId: string, newName: string) => {
+    // Actualización optimista - actualizar UI inmediatamente
+    const previousViews = [...views];
+    setViews(
+      views.map((v) => (v.view_id === viewId ? { ...v, name: newName } : v))
+    );
+
     try {
       const result = await updateViewAction(viewId, { name: newName });
 
       if (result.ok && result.view) {
+        // Actualizar con los datos del servidor
         setViews(views.map((v) => (v.view_id === viewId ? result.view! : v)));
       } else {
+        // Revertir cambio optimista si falla
+        setViews(previousViews);
         throw new Error(result.error || "Error al actualizar nombre de vista");
       }
     } catch (err: any) {
+      // Revertir cambio optimista si hay error
+      setViews(previousViews);
       console.error("Error actualizando nombre de vista:", err);
       throw err;
     }
   };
 
   const reloadViewProducts = async () => {
-    // Cargar productos de todas las vistas en paralelo
-    const productsPromises = views.map(async (view) => {
-      if (view.view_id) {
-        const products = await getProductsByViewIdAction(view.view_id);
-        return {
-          viewId: view.view_id,
-          productIds: products.map((p) => p.product_id!),
-        };
-      }
-      return null;
-    });
+    try {
+      // Recargar vistas primero para obtener la lista actualizada
+      const viewsData = await getViewsByProjectIdAction(projectId);
+      setViews(viewsData);
 
-    const results = await Promise.all(productsPromises);
-    const productsMap: Record<string, string[]> = {};
-    results.forEach((result) => {
-      if (result) {
-        productsMap[result.viewId] = result.productIds;
-      }
-    });
+      // Cargar productos de todas las vistas en paralelo (sin cambiar isLoading)
+      const productsPromises = viewsData.map(async (view) => {
+        if (view.view_id) {
+          const products = await getProductsByViewIdAction(view.view_id);
+          return {
+            viewId: view.view_id,
+            productIds: products.map((p) => p.product_id!),
+          };
+        }
+        return null;
+      });
 
-    setViewProducts(productsMap);
+      const results = await Promise.all(productsPromises);
+      const productsMap: Record<string, string[]> = {};
+      results.forEach((result) => {
+        if (result) {
+          productsMap[result.viewId] = result.productIds;
+        }
+      });
+
+      setViewProducts(productsMap);
+    } catch (err: any) {
+      console.error("Error recargando productos de vistas:", err);
+      throw err;
+    }
   };
 
   return {

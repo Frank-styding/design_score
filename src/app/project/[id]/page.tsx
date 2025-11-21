@@ -4,6 +4,7 @@ import { useParams, notFound } from "next/navigation";
 import { useProjectViewer } from "@/src/hooks/useProjectViewer";
 import { useModelPreloader } from "@/src/hooks/useModelPreloader";
 import OptimizedViewerPool from "@/src/components/OptimizedViewerPool";
+import { LoadingScreen } from "@/src/components/LoadingScreen";
 import { useEffect } from "react";
 
 export default function ProjectViewerPage() {
@@ -29,12 +30,15 @@ export default function ProjectViewerPage() {
   // Mostrar pantalla de carga inicial mientras se cargan datos del proyecto
   if (viewer.isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-gray-200 border-t-black rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-black text-xl">Cargando proyecto...</div>
-        </div>
-      </div>
+      <LoadingScreen
+        title="Cargando Proyecto"
+        subtitle="Preparando el proyecto para visualización..."
+        steps={[
+          "Cargando información del proyecto",
+          "Obteniendo vistas configuradas",
+          "Preparando modelos 3D",
+        ]}
+      />
     );
   }
 

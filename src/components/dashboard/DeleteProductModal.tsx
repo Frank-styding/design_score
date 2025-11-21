@@ -6,6 +6,7 @@ interface DeleteProductModalProps {
   isOpen: boolean;
   onConfirm: () => Promise<void> | void;
   onCancel: () => void;
+  productId: string | null; // Agregamos esto para usar como key
 }
 
 export default function DeleteProductModal({
@@ -24,6 +25,9 @@ export default function DeleteProductModal({
     try {
       await onConfirm();
       // Si llegamos aquí, la eliminación fue exitosa
+      // Resetear estados antes de cerrar
+      setIsDeleting(false);
+      setError(null);
     } catch (err) {
       const error = err as Error;
       setError(error.message || "Error al eliminar el producto");

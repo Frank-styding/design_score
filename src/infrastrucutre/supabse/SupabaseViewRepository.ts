@@ -83,6 +83,7 @@ export class SupabaseViewRepository implements IViewRepository {
     const updateData: any = {};
 
     if (updates.idx !== undefined) updateData.idx = updates.idx;
+    if (updates.name !== undefined) updateData.name = updates.name;
 
     const { data, error } = await this.supabaseClient
       .from("views")

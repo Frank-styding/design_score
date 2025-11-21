@@ -67,10 +67,19 @@ export function ViewsTab({
 
   const handleSaveEdit = async (viewId: string) => {
     if (editingName.trim()) {
-      await onUpdateViewName(viewId, editingName.trim());
+      try {
+        await onUpdateViewName(viewId, editingName.trim());
+        setEditingViewId(null);
+        setEditingName("");
+      } catch (error) {
+        const err = error as Error;
+        alert(`❌ Error al actualizar nombre: ${err.message}`);
+        // No cerrar el modo de edición para permitir al usuario corregir
+      }
+    } else {
+      setEditingViewId(null);
+      setEditingName("");
     }
-    setEditingViewId(null);
-    setEditingName("");
   };
 
   const handleCancelEdit = () => {
