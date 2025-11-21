@@ -106,6 +106,28 @@ export default function OptimizedViewerPool({
         return;
       }
 
+      // 🔄 SINCRONIZACIÓN DE ZOOM: Manejar eventos de rueda del mouse
+      if (event.data.type === "keyshot-wheel-event") {
+        const { containerId, direction } = event.data;
+
+        iframesRef.current.forEach((iframe, _productId) => {
+          if (_productId === containerId) return;
+
+          if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage(
+              {
+                type: "keyshot-wheel-event",
+                containerId: containerId,
+                direction: direction,
+              },
+              "*"
+            );
+          }
+        });
+
+        return;
+      }
+
       if (
         event.data.type === "keyshot-mouse-down" ||
         event.data.type === "keyshot-mouse-move" ||

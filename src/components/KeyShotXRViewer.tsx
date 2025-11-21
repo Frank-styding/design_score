@@ -469,6 +469,27 @@ function KeyShotXRViewer({
                   container.addEventListener("mouseup", function(e) {
                     sendMouseEvent("mouseup", e);
                   });
+                  
+                  // 🔄 SINCRONIZACIÓN DE ZOOM: Capturar eventos de rueda del mouse
+                  function sendWheelEvent(e) {
+                    if (!syncEnabled || isReceivingSync) return;
+                    
+                    // Calcular la dirección del zoom (1 para zoom in, -1 para zoom out)
+                    var delta = e.deltaY || e.detail || e.wheelDelta;
+                    var direction = delta > 0 ? -1 : 1;
+                    
+                    window.parent.postMessage({
+                      type: "keyshot-wheel-event",
+                      containerId: "${dynamicCfg.nameOfDiv}",
+                      direction: direction,
+                      deltaY: e.deltaY
+                    }, "*");
+                  }
+                  
+                  // Capturar eventos de rueda del mouse
+                  container.addEventListener("wheel", sendWheelEvent, { passive: true });
+                  container.addEventListener("mousewheel", sendWheelEvent, { passive: true });
+                  container.addEventListener("DOMMouseScroll", sendWheelEvent, { passive: true });
                 }
                 
                 // Notificar que la carga está completa
@@ -489,6 +510,29 @@ function KeyShotXRViewer({
                 // Habilitar/deshabilitar sincronización
                 if (data.type === "keyshot-sync-enable") {
                   syncEnabled = data.enabled;
+                }
+                
+                // 🔄 SINCRONIZACIÓN DE ZOOM: Recibir eventos de rueda sincronizados
+                if (data.type === "keyshot-wheel-event" && syncEnabled) {
+                  // No sincronizar si el mensaje viene de este mismo contenedor
+                  if (data.containerId === "${dynamicCfg.nameOfDiv}") {
+                    return;
+                  }
+                  
+                  var direction = data.direction;
+                  
+                  // Marcar que estamos recibiendo sincronización para evitar loop
+                  isReceivingSync = true;
+                  
+                  // Aplicar zoom usando el método Ha de KeyShotXR
+                  if (keyshotXR && keyshotXR.Ha) {
+                    keyshotXR.Ha(direction);
+                  }
+                  
+                  // Liberar el flag después de un breve delay
+                  setTimeout(function() {
+                    isReceivingSync = false;
+                  }, 16); // ~1 frame a 60fps
                 }
                 
                 // Recibir eventos de mouse sincronizados de otro visor
